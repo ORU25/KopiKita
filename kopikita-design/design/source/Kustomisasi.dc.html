@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Kustomisasi minuman</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #F1E4D4; color: #2B1810; font-family: 'Plus Jakarta Sans', system-ui, sans-serif;">
+
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 190px; display: flex; align-items: flex-start; justify-content: center; padding-top: 34px; box-sizing: border-box;">
+  <svg width="84" height="84" viewBox="0 0 24 24" fill="none" stroke="#6B3216" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 4v2M11 4v2M14 4v2"/></svg>
+</div>
+<a href="Menu.dc.html" aria-label="Tutup" style="position: absolute; left: 20px; top: 24px; width: 44px; height: 44px; border-radius: 22px; background: #fff; color: #2B1810; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+</a>
+
+<div style="position: absolute; left: 0; right: 0; top: 140px; bottom: 0; background: #fff; border-radius: 28px 28px 0 0; display: flex; flex-direction: column;">
+
+  <div style="flex-grow: 1; overflow: hidden; padding: 12px 20px 0; display: flex; flex-direction: column; gap: 14px;">
+    <div style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #D9CABB;"></div>
+
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.3px;">Kopi Susu Kita</span>
+        <span style="font-size: 13px; color: #7A6355;">Espresso, susu segar, dan gula aren</span>
+      </div>
+      <span style="font-size: 16px; font-weight: 800; color: #6B3216; padding-top: 4px;">Rp22.000</span>
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 600; color: #7A6355;">Ukuran</span>
+        <div style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #F7F2EC;">
+          <sc-for list="{{ukuran}}" as="o" hint-placeholder-count="2">
+            <span style="flex: 1; height: 36px; border-radius: 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: {{o.bg}}; color: {{o.fg}};">{{o.label}}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 600; color: #7A6355;">Suhu</span>
+        <div style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #F7F2EC;">
+          <sc-for list="{{suhu}}" as="o" hint-placeholder-count="2">
+            <span style="flex: 1; height: 36px; border-radius: 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: {{o.bg}}; color: {{o.fg}};">{{o.label}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 12px; font-weight: 600; color: #7A6355;">Level gula</span>
+      <div style="display: flex; gap: 8px;">
+        <sc-for list="{{gula}}" as="o" hint-placeholder-count="4">
+          <span style="flex: 1; height: 44px; border-radius: 14px; box-sizing: border-box; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: {{o.bg}}; color: {{o.fg}}; border: 1.5px solid {{o.line}};">{{o.label}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 12px; font-weight: 600; color: #7A6355;">Level es</span>
+      <div style="display: flex; gap: 8px;">
+        <sc-for list="{{es}}" as="o" hint-placeholder-count="3">
+          <span style="flex: 1; height: 44px; border-radius: 14px; box-sizing: border-box; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: {{o.bg}}; color: {{o.fg}}; border: 1.5px solid {{o.line}};">{{o.label}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 12px; font-weight: 600; color: #7A6355;">Add-on</span>
+      <div style="display: flex; flex-direction: column; gap: 0;">
+        <sc-for list="{{addons}}" as="o" hint-placeholder-count="3">
+          <div style="height: 44px; box-sizing: border-box; padding: 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #F0E7DC;">
+            <span style="width: 22px; height: 22px; border-radius: 7px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: {{o.box}}; border: 1.5px solid {{o.boxLine}}; color: #fff;">
+              <sc-if value="{{o.on}}" hint-placeholder-val="{{true}}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+              </sc-if>
+            </span>
+            <span style="flex-grow: 1; font-size: 14px; font-weight: 600;">{{o.label}}</span>
+            <span style="font-size: 13px; font-weight: 700; color: #7A6355;">{{o.harga}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="height: 44px; border-radius: 14px; background: #F7F2EC; padding: 0 14px; display: flex; align-items: center; gap: 10px; color: #7A6355; font-size: 13px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+      Catatan untuk barista (opsional)
+    </div>
+  </div>
+
+  <div style="padding: 12px 20px 20px; border-top: 1px solid #EDE3D8; display: flex; align-items: center; gap: 12px; background: #fff;">
+    <div style="height: 52px; border-radius: 16px; background: #F7F2EC; display: flex; align-items: center; gap: 4px; padding: 0 6px;">
+      <span aria-label="Kurangi" style="width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6B3216;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></span>
+      <span style="min-width: 20px; text-align: center; font-size: 16px; font-weight: 800;">1</span>
+      <span aria-label="Tambah" style="width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6B3216;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+    </div>
+    <a href="Keranjang.dc.html" style="flex-grow: 1; height: 52px; border-radius: 16px; background: #6B3216; color: #fff; text-decoration: none; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Tambah · Rp31.000</a>
+  </div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const seg = (label, on) => ({ label, bg: on ? '#fff' : 'transparent', fg: on ? '#6B3216' : '#7A6355' });
+    const chip = (label, on) => ({ label, bg: on ? '#fff' : '#F7F2EC', fg: on ? '#6B3216' : '#5A4436', line: on ? '#6B3216' : 'transparent' });
+    const add = (label, harga, on) => ({ label, harga, on, bg: 'transparent', line: 'transparent', box: on ? '#6B3216' : '#fff', boxLine: on ? '#6B3216' : '#B9A89B' });
+    return {
+      ukuran: [seg('Regular', false), seg('Large +Rp4.000', true)],
+      suhu: [seg('Panas', false), seg('Es', true)],
+      gula: [chip('Tanpa', false), chip('Sedikit', false), chip('Normal', true), chip('Manis', false)],
+      es: [chip('Sedikit', false), chip('Normal', true), chip('Banyak', false)],
+      addons: [add('Extra shot', '+Rp5.000', true), add('Oat milk', '+Rp6.000', false), add('Sirup karamel', '+Rp4.000', false)]
+    };
+  }
+}
+</script>
+</body>
+</html>

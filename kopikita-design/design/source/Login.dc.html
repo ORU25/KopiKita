@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Masuk KopiKita</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #FCF9F5; color: #2B1810; font-family: 'Plus Jakarta Sans', system-ui, sans-serif;">
+
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 290px; background: #2B1810; border-radius: 0 0 24px 24px; overflow: hidden;">
+  
+  
+  <div style="position: absolute; left: 24px; right: 24px; top: 64px; display: flex; flex-direction: column; gap: 6px; color: #FBEFE0;">
+    <span style="font-size: 30px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1;">KopiKita</span>
+    <span style="font-size: 14px; font-weight: 500; opacity: 0.9;">Pesan kopi favoritmu tanpa antre.</span>
+  </div>
+</div>
+
+<div style="position: absolute; left: 16px; right: 16px; top: 226px; box-sizing: border-box; background: #fff; border-radius: 24px; padding: 22px 20px 20px; box-shadow: 0 6px 20px rgba(43,24,16,0.07); display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.3px;">Masuk</span>
+    <span style="font-size: 13px; color: #7A6355;">Masuk untuk mulai memesan.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 12px; font-weight: 700; color: #5A4436;">Email</span>
+      <div style="height: 52px; border-radius: 14px; background: #F7F2EC; padding: 0 14px; display: flex; align-items: center; gap: 10px;">
+        <span style="color: #7A6355; display: flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg></span>
+        <span style="font-size: 14px; font-weight: 600;">rina@email.com</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 12px; font-weight: 700; color: #5A4436;">Kata sandi</span>
+      <div style="height: 52px; border-radius: 14px; background: #fff; border: 1.5px solid #6B3216; box-sizing: border-box; padding: 0 6px 0 14px; display: flex; align-items: center; gap: 10px;">
+        <span style="color: #6B3216; display: flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+        <span style="flex-grow: 1; font-size: 16px; font-weight: 700; letter-spacing: 2px;">••••••••</span>
+        <span aria-label="Tampilkan kata sandi" style="width: 44px; height: 44px; color: #7A6355; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+      </div>
+    </div>
+    <span style="align-self: flex-end; font-size: 13px; font-weight: 700; color: #6B3216;">Lupa kata sandi?</span>
+  </div>
+
+  <a href="Main.dc.html" style="height: 52px; border-radius: 16px; background: #6B3216; color: #fff; text-decoration: none; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Masuk</a>
+
+  <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: #7A6355;">
+    <span style="flex-grow: 1; height: 1px; background: #EDE3D8;"></span>atau<span style="flex-grow: 1; height: 1px; background: #EDE3D8;"></span>
+  </div>
+
+  <span style="height: 52px; border-radius: 16px; border: 1.5px solid #E6D9CB; box-sizing: border-box; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Lanjutkan dengan Google</span>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 36px; text-align: center; font-size: 14px; color: #7A6355;">
+  Belum punya akun? <span style="font-weight: 800; color: #6B3216;">Daftar</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

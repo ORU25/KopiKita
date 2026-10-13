@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Keranjang KopiKita</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #FCF9F5; color: #2B1810; font-family: 'Plus Jakarta Sans', system-ui, sans-serif;">
+
+<div style="padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px;">
+  <div style="height: 44px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 4px;">
+      <a href="Menu.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; margin-left: -10px; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #2B1810; text-decoration: none;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+      <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.3px;">Keranjang</span>
+    </div>
+    <span style="font-size: 13px; font-weight: 600; color: #7A6355;">3 item</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: #fff;">
+      <span style="flex: 1; height: 40px; border-radius: 12px; background: #F1E4D4; color: #6B3216; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Makan di tempat</span>
+      <span style="flex: 1; height: 40px; border-radius: 12px; color: #7A6355; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center;">Ambil sendiri</span>
+    </div>
+    <div style="height: 48px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; border-bottom: 1px solid #EDE3D8;">
+      <span style="color: #7A6355; font-weight: 500;">Nomor meja</span>
+      <span style="font-weight: 700;">7</span>
+    </div>
+  </div>
+
+  <div style="background: #fff; border-radius: 20px; padding: 0 16px; display: flex; flex-direction: column;">
+    <sc-for list="{{items}}" as="it" hint-placeholder-count="2">
+      <div style="padding: 14px 0; border-bottom: 1px solid #F0E7DC; display: flex; gap: 12px;">
+        <div style="width: 56px; height: 56px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: {{it.bg}};">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="{{it.fg}}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 4v2M11 4v2M14 4v2"/></svg>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 700;">{{it.nama}}</span>
+            <span style="font-size: 12px; color: #7A6355; line-height: 1.4;">{{it.opsi}}</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 14px; font-weight: 700;">{{it.harga}}</span>
+            <div style="display: flex; align-items: center; gap: 4px; color: #6B3216;">
+              <span aria-label="Kurangi" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #E6D9CB; box-sizing: border-box; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></span>
+              <span style="min-width: 24px; text-align: center; font-size: 14px; font-weight: 700; color: #2B1810;">{{it.jumlah}}</span>
+              <span aria-label="Tambah" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #E6D9CB; box-sizing: border-box; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+    <div style="height: 52px; display: flex; align-items: center; gap: 10px;">
+      <span style="color: #6B3216; display: flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1"/></svg></span>
+      <span style="flex-grow: 1; font-size: 13px; font-weight: 600;">KOPIKITA20 diterapkan</span>
+      <span style="font-size: 13px; font-weight: 700; color: #6B3216;">Ganti</span>
+    </div>
+  </div>
+
+  <div style="padding: 0 4px; display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+    <div style="display: flex; justify-content: space-between;"><span style="color: #7A6355;">Subtotal</span><span style="font-weight: 600;">Rp87.000</span></div>
+    <div style="display: flex; justify-content: space-between;"><span style="color: #7A6355;">Diskon</span><span style="font-weight: 600;">−Rp17.400</span></div>
+    <div style="display: flex; justify-content: space-between;"><span style="color: #7A6355;">Pajak 10%</span><span style="font-weight: 600;">Rp6.960</span></div>
+    <div style="height: 1px; background: #EDE3D8; margin: 4px 0;"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 600; font-size: 14px;">Total</span><span style="font-weight: 800; font-size: 18px;">Rp76.560</span></div>
+    <span style="font-size: 12px; color: #7A6355; padding-top: 2px;">Bayar di kasir dengan tunai atau QRIS.</span>
+  </div>
+</div>
+
+<div style="position: absolute; left: 20px; right: 20px; bottom: 24px;">
+  <a href="Status.dc.html" style="height: 52px; border-radius: 16px; background: #6B3216; color: #fff; text-decoration: none; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Pesan · Rp76.560</a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      items: [
+        { nama: 'Kopi Susu Kita', opsi: 'Large · Es · Gula normal · Es normal · + Extra shot', harga: 'Rp31.000', jumlah: 1, bg: '#F1E4D4', fg: '#6B3216' },
+        { nama: 'Caramel Latte', opsi: 'Regular · Panas · Gula sedikit', harga: 'Rp56.000', jumlah: 2, bg: '#F1E4D4', fg: '#6B3216' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

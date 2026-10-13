@@ -1,0 +1,8 @@
+## Desain UI (aplikasi pelanggan)
+
+- Semua UI aplikasi pelanggan WAJIB mengikuti `design/DESIGN.md` (sumber kebenaran untuk warna, tipografi, radius, jarak, komponen, dan perilaku layar).
+- Sebelum membuat atau mengubah sebuah layar, buka gambar acuannya di `design/screens/` (mis. `design/screens/Menu.png`) dan bagian layar terkait di `DESIGN.md`.
+- Jika ada nilai yang tidak jelas, cek nilai persisnya di `design/source/<Layar>.dc.html` (inline CSS).
+- Gunakan token di `lib/theme/` (AppColors, tipografi) — jangan menulis warna hex langsung di widget.
+- Aturan penting: teks minimal 12, target sentuh minimal 44×44, thumbnail produk radius 10, daftar panjang memakai baris datar (bukan card), keranjang tampil sebagai strip di atas navbar (bukan tab), hanya metode Ambil Sendiri & Makan di Tempat, tidak ada fitur poin.
+- Aset gambar ada di `design/assets/`; salin ke `assets/` proyek dan daftarkan di `pubspec.yaml`.

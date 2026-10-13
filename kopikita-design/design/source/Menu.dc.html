@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Menu KopiKita</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+.slider{scrollbar-width:none}
+.slider::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #FCF9F5; color: #2B1810; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; display: flex; flex-direction: column;">
+
+<div style="flex: none; padding: 20px 20px 10px; box-sizing: border-box; background: #FCF9F5; display: flex; flex-direction: column; gap: 12px;">
+  <sc-if value="{{expanded}}" hint-placeholder-val="{{true}}">
+    <div style="height: 44px; display: flex; align-items: center; gap: 12px;">
+      <a href="Main.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; border-radius: 22px; background: #fff; color: #2B1810; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+      </a>
+      <span style="flex-grow: 1; font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">KopiKita</span>
+      <button aria-label="Info kedai" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #fff; color: #6B3216; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+    </div>
+    <div style="display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">
+      <button onClick="{{pilihPickup}}" style="flex: 1; height: 40px; border: 0; border-radius: 12px; font-size: 13px; font-weight: 700; background: {{pickBg}}; color: {{pickFg}};">Ambil Sendiri</button>
+      <button onClick="{{pilihDine}}" style="flex: 1; height: 40px; border: 0; border-radius: 12px; font-size: 13px; font-weight: 700; background: {{dineBg}}; color: {{dineFg}};">Makan di Tempat</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{false}}">
+    <div style="height: 48px; display: flex; align-items: center; gap: 12px;">
+      <a href="Main.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; border-radius: 22px; background: #fff; color: #2B1810; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+      </a>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 14px; font-weight: 800;">{{metodeLabel}} · KopiKita</span>
+        <span style="font-size: 12px; color: #7A6355; font-weight: 500;">Outlet Utama · 350 m dari kamu</span>
+      </div>
+      <span style="height: 32px; padding: 0 12px; border-radius: 16px; background: #fff; color: #6B3216; font-size: 12px; font-weight: 800; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">Ubah</span>
+    </div>
+  </sc-if>
+</div>
+
+<div class="slider" onScroll="{{onScroll}}" style="flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 156px;">
+
+  <div style="position: sticky; top: 0; z-index: 2; background: #FCF9F5; padding: 6px 20px 10px; display: flex; align-items: center; gap: 8px;">
+    <div class="slider" style="flex-grow: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto;">
+      <sc-for list="{{kategori}}" as="k" hint-placeholder-count="4">
+        <span style="flex: none; height: 40px; padding: 0 16px; border-radius: 20px; font-size: 13px; font-weight: 700; display: flex; align-items: center; background: {{k.bg}}; color: {{k.fg}};">{{k.label}}</span>
+      </sc-for>
+    </div>
+    <button aria-label="Cari menu" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #fff; color: #6B3216; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(60,30,10,0.05);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+    </button>
+  </div>
+
+  <div style="padding: 8px 0 0; display: flex; flex-direction: column; gap: 10px;">
+    <span style="padding: 0 20px; font-size: 16px; font-weight: 800;">Rekomendasi</span>
+    <div class="slider" style="display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 20px; padding: 0 20px;">
+      <sc-for list="{{rekom}}" as="p" hint-placeholder-count="4">
+        <div style="flex: 0 0 276px; scroll-snap-align: start; background: #fff; border-radius: 20px; padding: 10px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 10px rgba(60,30,10,0.05);">
+          <div style="flex: none; width: 64px; height: 64px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: {{p.bg}};">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="{{p.fg}}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 4v2M11 4v2M14 4v2"/></svg>
+          </div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.nama}}</span>
+            <span style="font-size: 12px; color: #7A6355; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.deskripsi}}</span>
+            <span style="font-size: 13px; font-weight: 800; color: #6B3216;">{{p.harga}}</span>
+          </div>
+          <a href="Kustomisasi.dc.html" aria-label="Tambah {{p.nama}}" style="flex: none; width: 36px; height: 36px; border-radius: 18px; background: #6B3216; color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </a>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="padding: 6px 20px 0; display: flex; flex-direction: column; gap: 0;">
+    <sc-for list="{{baris}}" as="r" hint-placeholder-count="6">
+      <sc-if value="{{r.isHeader}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: baseline; gap: 8px; padding: 18px 0 4px;">
+          <span style="font-size: 16px; font-weight: 800;">{{r.judul}}</span>
+          <span style="font-size: 12px; font-weight: 600; color: #7A6355;">{{r.jumlah}}</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{r.isItem}}" hint-placeholder-val="{{true}}">
+        <div style="padding: 14px 0; display: flex; gap: 14px; align-items: stretch; border-bottom: 1px solid #E9DED2; opacity: {{r.opacity}};">
+          <div style="flex: none; width: 84px; height: 84px; border-radius: 10px; position: relative; display: flex; align-items: center; justify-content: center; background: {{r.bg}};">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="{{r.fg}}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.icon}}"/></svg>
+            <sc-if value="{{r.habis}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; left: 6px; top: 6px; height: 22px; padding: 0 8px; border-radius: 11px; background: #2B1810; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center;">Habis</span>
+            </sc-if>
+          </div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 4px;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 700; line-height: 1.25;">{{r.nama}}</span>
+              <span style="font-size: 12px; color: #7A6355; line-height: 1.35;">{{r.deskripsi}}</span>
+            </div>
+            <span style="font-size: 14px; font-weight: 800; color: #6B3216;">{{r.harga}}</span>
+          </div>
+          <div style="flex: none; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between;">
+            <button onClick="{{r.toggleFav}}" aria-label="Favorit {{r.nama}}" style="width: 36px; height: 36px; border: 0; border-radius: 18px; background: transparent; color: {{r.heartColor}}; display: flex; align-items: center; justify-content: center; padding: 0;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="{{r.heartFill}}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>
+            </button>
+            <a href="Kustomisasi.dc.html" aria-label="Tambah {{r.nama}}" style="width: 36px; height: 36px; border-radius: 18px; background: {{r.btnBg}}; color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </a>
+          </div>
+        </div>
+      </sc-if>
+    </sc-for>
+  </div>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 28px 28px 0 0; box-shadow: 0 -6px 24px rgba(60,30,10,0.08); display: flex; flex-direction: column;">
+  <a href="Keranjang.dc.html" style="height: 56px; padding: 0 20px; border-radius: 28px 28px 0 0; background: #F6ECE0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #2B1810;">
+    <span style="width: 36px; height: 36px; border-radius: 12px; background: #fff; color: #6B3216; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.6a1 1 0 0 0 1-.8L19.5 8H6"/><circle cx="9" cy="19" r="1.2"/><circle cx="17" cy="19" r="1.2"/></svg></span>
+    <span style="flex-grow: 1; font-size: 13px; color: #7A6355; font-weight: 600;">3 item · <span style="color: #2B1810; font-weight: 800;">Rp76.560</span></span>
+    <span style="font-size: 13px; font-weight: 700; color: #6B3216; display: flex; align-items: center; gap: 2px;">Lihat keranjang<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></span>
+  </a>
+  <div style="height: 84px; box-sizing: border-box; padding: 10px 8px 14px; display: flex;">
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #7A6355; font-size: 12px; font-weight: 600;"><span style="width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9z"/></svg></span>Beranda</a>
+    <a href="Menu.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6B3216; font-size: 12px; font-weight: 700;"><span style="width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: #F1E4D4;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V8z"/><path d="M16 9h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3v2M11 3v2M14 3v2"/></svg></span>Menu</a>
+    <a href="Status.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #7A6355; font-size: 12px; font-weight: 600;"><span style="width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/></svg></span>Pesanan</a>
+    <a href="Akun.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #7A6355; font-size: 12px; font-weight: 600;"><span style="width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4.5-6 8-6s7 2 8 6"/></svg></span>Akun</a>
+  </div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"collapsed":{"editor":"boolean","default":false,"section":"Header"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { collapsed: null, metode: 'pickup', fav: { 'Caramel Latte': true } };
+    this.handleScroll = (e) => {
+      const t = e.target.scrollTop;
+      const c = this.state.collapsed === null ? !!this.props.collapsed : this.state.collapsed;
+      if (!c && t > 60) this.setState({ collapsed: true });
+      else if (c && t < 8) this.setState({ collapsed: false });
+    };
+    this.pilihPickup = () => this.setState({ metode: 'pickup' });
+    this.pilihDine = () => this.setState({ metode: 'dine' });
+  }
+  renderVals() {
+    const collapsed = this.state.collapsed === null ? !!this.props.collapsed : this.state.collapsed;
+    const pick = this.state.metode === 'pickup';
+    const cup = 'M5 9h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5V9zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 4v2M11 4v2M14 4v2';
+    const food = 'M4 15c0-4 3.5-7 8-7s8 3 8 7H4zM3 18.5h18M10 5.5h4';
+    const katalog = [
+      ['Kopi', [
+        { nama: 'Kopi Susu Kita', deskripsi: 'Espresso, susu segar, dan gula aren', harga: 'Rp22.000', bg: '#F1E4D4', fg: '#6B3216', icon: cup },
+        { nama: 'Caramel Latte', deskripsi: 'Espresso, susu, dan sirup karamel', harga: 'Rp28.000', bg: '#F1E4D4', fg: '#6B3216', icon: cup },
+        { nama: 'Americano', deskripsi: 'Espresso dan air, tegas dan bersih', harga: 'Rp18.000', bg: '#F1E4D4', fg: '#6B3216', icon: cup }
+      ]],
+      ['Non-Kopi', [
+        { nama: 'Matcha Latte', deskripsi: 'Matcha dan susu yang lembut', harga: 'Rp26.000', bg: '#F1E4D4', fg: '#6B3216', icon: cup, habis: true },
+        { nama: 'Cokelat Panas', deskripsi: 'Cokelat pekat dengan susu hangat', harga: 'Rp24.000', bg: '#F1E4D4', fg: '#6B3216', icon: cup }
+      ]],
+      ['Makanan', [
+        { nama: 'Croissant Butter', deskripsi: 'Renyah, beraroma mentega, disajikan hangat', harga: 'Rp20.000', bg: '#F1E4D4', fg: '#6B3216', icon: food },
+        { nama: 'Roti Bakar Cokelat', deskripsi: 'Roti tebal dengan cokelat leleh', harga: 'Rp18.000', bg: '#F1E4D4', fg: '#6B3216', icon: food }
+      ]]
+    ];
+    const baris = [];
+    katalog.forEach(([judul, list]) => {
+      baris.push({ isHeader: true, isItem: false, judul, jumlah: list.length + ' menu' });
+      list.forEach((it) => {
+        const fav = !!this.state.fav[it.nama];
+        baris.push({
+          ...it, isHeader: false, isItem: true, habis: !!it.habis,
+          opacity: it.habis ? 0.6 : 1,
+          btnBg: it.habis ? '#B9A89B' : '#6B3216',
+          heartColor: fav ? '#9A5A1C' : '#7A6355',
+          heartFill: fav ? 'currentColor' : 'none',
+          toggleFav: () => this.setState({ fav: { ...this.state.fav, [it.nama]: !fav } })
+        });
+      });
+    });
+    return {
+      expanded: !collapsed,
+      collapsed,
+      metodeLabel: pick ? 'Ambil Sendiri' : 'Makan di Tempat',
+      pickBg: pick ? '#6B3216' : 'transparent', pickFg: pick ? '#fff' : '#2B1810',
+      dineBg: pick ? 'transparent' : '#6B3216', dineFg: pick ? '#2B1810' : '#fff',
+      pilihPickup: this.pilihPickup, pilihDine: this.pilihDine,
+      onScroll: this.handleScroll,
+      kategori: ['Rekomendasi', 'Kopi', 'Non-Kopi', 'Makanan'].map((label, i) => ({ label, bg: i === 0 ? '#6B3216' : '#fff', fg: i === 0 ? '#fff' : '#2B1810' })),
+      rekom: [
+        { nama: 'Kopi Susu Kita', deskripsi: 'Paling sering dipesan', harga: 'Rp22.000', bg: '#F1E4D4', fg: '#6B3216' },
+        { nama: 'Es Kopi Gula Aren', deskripsi: 'Segar dan manis alami', harga: 'Rp24.000', bg: '#F1E4D4', fg: '#6B3216' },
+        { nama: 'Caramel Latte', deskripsi: 'Hangat, lembut, dan manis', harga: 'Rp28.000', bg: '#F1E4D4', fg: '#6B3216' },
+        { nama: 'Cappuccino', deskripsi: 'Busa susu tebal dan creamy', harga: 'Rp24.000', bg: '#F1E4D4', fg: '#6B3216' }
+      ],
+      baris
+    };
+  }
+}
+</script>
+</body>
+</html>
