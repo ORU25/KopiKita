@@ -1,6 +1,8 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
 import 'providers/cart_provider.dart';
 import 'screens/account_page.dart';
 import 'screens/home_page.dart';
@@ -10,9 +12,9 @@ import 'screens/orders_page.dart';
 import 'theme/app_theme.dart';
 import 'widgets/common.dart';
 
-void main() {
-  // Modul 5: MultiProvider + ChangeNotifierProvider
-  // MultiProvider: menyediakan beberapa provider sekaligus ke seluruh widget tree
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
     MultiProvider(
       providers: [

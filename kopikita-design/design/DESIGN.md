@@ -33,7 +33,7 @@ Acuan UI untuk aplikasi Android pelanggan KopiKita (Flutter). Dokumen ini adalah
 | `divider` | `#EDE3D8` | Garis pemisah umum, border bawah tab |
 | `dividerSoft` | `#F0E7DC` | Pemisah di dalam card |
 | `dividerList` | `#E9DED2` | Pemisah baris daftar menu |
-| `outline` | `#E6D9CB` | Border tombol bulat stepper, tombol Google, garis stepper belum dilalui |
+| `outline` | `#E6D9CB` | Border tombol bulat stepper, tombol sekunder bergaris, garis stepper belum dilalui |
 | `pending` | `#D9CABB` | Titik status belum tercapai, dot slider tidak aktif, handle bottom sheet |
 
 **Catatan "putih":** di bagian 2–3, latar card/sheet/navbar/tombol bulat yang disebut "putih" memakai token `surface` (`#FCF9F5`), bukan `#FFFFFF`. Sheet Kustomisasi berlatar `bg` (`#FFFFFF`), item terpilih `primary` teks putih; input fokus memakai `bg`. Teks/ikon putih di atas `primary` tetap `#FFFFFF`.
@@ -130,7 +130,7 @@ Padding vertikal 14, `border-bottom: 1px` (`dividerList` / `divider`), tanpa car
 
 ### Tombol
 - Utama: tinggi 52, radius 16, latar `primary`, teks putih 15/700. Lebar penuh atau `Expanded`.
-- Sekunder bergaris: tinggi 52, radius 16, border 1.5 `outline`, teks ink 14/700 (contoh: "Lanjutkan dengan Google" — pakai aset logo resmi dari panduan branding Google Sign-In).
+- Sekunder bergaris: tinggi 52, radius 16, border 1.5 `outline`, teks ink 14/700 (saat ini belum dipakai — tombol "Lanjutkan dengan Google" sudah dihapus).
 - Tombol bulat tambah (+): 36×36, latar `primary`, ikon putih 20. Saat habis: latar `disabled`.
 - Stepper di keranjang: lingkaran 32 border 1 `outline`, ikon `primary`, angka 14/700.
 
@@ -138,14 +138,33 @@ Padding vertikal 14, `border-bottom: 1px` (`dividerList` / `divider`), tanpa car
 
 ## 3. Layar
 
-Urutan alur: **Login → Beranda → Menu → Kustomisasi → Keranjang → Pesanan (Aktif) ↔ Riwayat**, plus **Akun**.
+Urutan alur: **Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keranjang → Pesanan (Aktif) ↔ Riwayat**, plus **Akun**.
 
 ### 3.1 Login (`screens/Login.png`, `source/Login.dc.html`)
 - Banner atas tinggi 290, latar `ink #2B1810`, radius bawah 24. Teks **rata tengah** (top 64): "KopiKita" 30/800 `cream`, tagline "Pesan kopi favoritmu tanpa antre." 14/500.
 - **Badge logo**: lingkaran 92, latar `bg` (putih), border 4 `surface`, bayangan `float`, padding 12, aset `assets/images/logo-app.png` (dari `kopikita-design/assets/logoAppLatarPutih.png`). Tengah horizontal, top 180 → titik tengahnya tepat di tepi atas card (setengah di banner, setengah di card).
-- Card melayang (top 226, padding 58 20 20 untuk ruang badge): "Masuk" 22/800 + subjudul (keduanya rata tengah) "Masuk untuk mulai memesan." 13 muted → field **Email** (label 12/700 `textSecondary`, input 52 radius 14 latar `fill`, ikon amplop kiri) → field **Kata sandi** (state fokus: latar putih, border 1.5 `primary`, ikon gembok, tombol mata 44 di kanan) → link "Lupa kata sandi?" rata kanan 13/700 `primary` → tombol **Masuk** → pemisah "atau" (garis `divider`, teks 12 muted) → tombol bergaris "Lanjutkan dengan Google".
-- Bawah (bottom 36, tengah): "Belum punya akun? **Daftar**" (14 muted; "Daftar" 800 `primary`).
-- Autentikasi: Firebase Auth (email/kata sandi + Google). Masuk berhasil → Beranda.
+- Card melayang (top 226, padding 58 20 20 untuk ruang badge): "Masuk" 22/800 + subjudul (keduanya rata tengah) "Masuk untuk mulai memesan." 13 muted → field **Email** (label 12/700 `textSecondary`, input 52 radius 14 latar `fill`, ikon amplop kiri) → field **Kata sandi** (state fokus: latar putih, border 1.5 `primary`, ikon gembok, tombol mata 44 di kanan) → link "Lupa kata sandi?" rata kanan 13/700 `primary` → tombol **Masuk** (akhir card). **Tidak ada login Google** — pemisah "atau" dan tombol "Lanjutkan dengan Google" yang masih terlihat di `screens/Login.png` / `source/Login.dc.html` sudah dihapus; abaikan bagian itu.
+- Bawah (bottom 36, tengah): "Belum punya akun? **Daftar**" (14 muted; "Daftar" 800 `primary`) → layar Daftar (3.1a).
+- Autentikasi: Firebase Auth **email/kata sandi saja**. Masuk berhasil → Beranda.
+- Flutter: banner + badge + card + ajakan bawah adalah widget bersama `AuthScaffold` (`lib/screens/login_page.dart`), dipakai Masuk & Daftar; isi form dikirim lewat `children`.
+
+### 3.1a Daftar (belum ada gambar; turunan Login)
+- Kerangka **sama persis** dengan Login (`AuthScaffold`): banner 290 `ink`, badge logo, card melayang top 226 padding 58 20 20.
+- Isi card: "Daftar" 22/800 + "Buat akun untuk mulai memesan." 13 muted (rata tengah) → field **Nama** (ikon orang, placeholder "Nama lengkap", huruf kapital tiap kata) → field **Email** (ikon amplop) → field **Kata sandi** (ikon gembok, tombol mata 44, placeholder "Minimal 6 karakter") → jarak 20 → tombol utama **Daftar**. Jarak antar-field 14, label field 12/700 `textSecondary`.
+- Bawah: "Sudah punya akun? **Masuk**" → kembali ke Login (pop).
+- Daftar berhasil → Beranda (riwayat Login/Daftar dibuang). Nanti: Firebase Auth `createUserWithEmailAndPassword` + dokumen `users/{uid}` role `pelanggan`.
+
+```dart
+// Pola pakai AuthScaffold (lib/screens/register_page.dart)
+AuthScaffold(
+  judul: 'Daftar',
+  subjudul: 'Buat akun untuk mulai memesan.',
+  ajakan: 'Sudah punya akun?',
+  aksi: 'Masuk',
+  onAksi: () => Navigator.pop(context),
+  children: [labelField('Nama'), TextField(...), /* Email, Kata sandi */ PrimaryButton(label: 'Daftar', onPressed: _daftar)],
+)
+```
 
 ### 3.2 Beranda (`screens/Beranda.png`, `source/Main.dc.html`)
 - **Banner** tinggi 280, radius bawah 24, gambar `banner-beranda.jpg` cover, dengan gradasi gelap `ink` 0% (35% tinggi) → 85% (bawah) agar sapaan terbaca. Tanpa logo. Tombol notifikasi bulat 44 di kanan atas (top 24, right 20; latar `rgba(251,239,224,0.14)`, ikon `cream`).
@@ -258,4 +277,4 @@ class AppColors {
 - Teks harga: format Rupiah tanpa desimal dengan titik ribuan — "Rp22.000" (`NumberFormat.currency(locale: 'id', symbol: 'Rp', decimalDigits: 0)`).
 
 ## 5. Belum didesain
-Daftar akun, Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, detail promo/voucher, keadaan kosong (keranjang kosong → strip keranjang disembunyikan; belum ada pesanan aktif), keadaan error/loading, serta aplikasi staf & admin. Ikuti token dan komponen di atas untuk layar-layar ini.
+Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, detail promo/voucher, keadaan kosong (keranjang kosong → strip keranjang disembunyikan; belum ada pesanan aktif), keadaan error/loading, serta aplikasi staf & admin. Ikuti token dan komponen di atas untuk layar-layar ini.

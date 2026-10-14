@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kopikita/data/dummy_data.dart';
 import 'package:kopikita/main.dart';
 import 'package:kopikita/models/cart_item.dart';
 import 'package:kopikita/providers/cart_provider.dart';
@@ -26,6 +27,18 @@ void main() {
     expect(cart.items.length, 3);
   });
 
+  // Model ↔ Firestore: toMap lalu fromMap harus menghasilkan data yang sama
+  test('Pesanan & CartItem toMap/fromMap', () {
+    final p = Pesanan.fromMap('x', contohPesananAktif.toMap());
+    expect(p.nomor, 'A-014');
+    expect(p.status, 2); // "diproses"
+    expect(p.toMap()['status'], 'diproses');
+    expect(p.items.first.labelOpsi, contohPesananAktif.items.first.labelOpsi);
+    expect(p.items[1].jumlah, 2);
+    expect(Pesanan.fromMap('y', {'status': 'batal'}).batal, isTrue);
+    expect(Produk.fromMap('a', daftarMenu[3].toMap()).habis, isTrue);
+  });
+
   testWidgets('Login → Beranda', (tester) async {
     // Ukuran frame desain 390×844
     tester.view.physicalSize = const Size(390, 844);
@@ -34,6 +47,14 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider(create: (_) => CartProvider(), child: const MainApp()),
     );
+    // Masuk → Daftar → kembali ke Masuk
+    await tester.tap(find.text('Daftar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Buat akun untuk mulai memesan.'), findsOneWidget);
+    expect(find.text('Lanjutkan dengan Google'), findsNothing);
+    await tester.tap(find.text('Masuk').last); // Link "Masuk" di bawah
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Masuk').last); // Tombol Masuk (bukan judul)
     await tester.pumpAndSettle();
     expect(find.text('Hai, Rina'), findsOneWidget);

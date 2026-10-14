@@ -1,29 +1,15 @@
 // Data dummy statis untuk UI (sementara, nanti diganti Firestore)
 // Isi data mengikuti contoh di kopikita-design/design/source/*.dc.html
 import '../models/cart_item.dart';
+import '../models/pesanan.dart';
+import '../models/produk.dart';
+import '../models/voucher.dart';
 
-// Produk: model data satu menu
-class Produk {
-  final String nama; // Nama menu
-  final String deskripsi; // Deskripsi singkat
-  final int harga; // Harga dasar
-  final String kategori; // "Kopi" / "Non-Kopi" / "Makanan"
-  final bool habis; // true = stok habis
-
-  const Produk({
-    required this.nama,
-    required this.deskripsi,
-    required this.harga,
-    required this.kategori,
-    this.habis = false,
-  });
-
-  // makanan: true bila produk termasuk kategori Makanan
-  bool get makanan => kategori == 'Makanan';
-}
-
-// kategoriMenu: urutan kategori pada chip filter Menu
-const kategoriMenu = ['Rekomendasi', 'Kopi', 'Non-Kopi', 'Makanan'];
+// Model dipindah ke lib/models/; di-export di sini agar import layar tidak berubah.
+// ponytail: hapus file ini setelah semua layar membaca Firestore (tugas P5, Hari 6)
+export '../models/pesanan.dart';
+export '../models/produk.dart';
+export '../models/voucher.dart';
 
 // daftarMenu: katalog menu lengkap
 const daftarMenu = [
@@ -63,46 +49,11 @@ const addOnMenu = {'Extra shot': 5000, 'Oat milk': 6000, 'Sirup karamel': 4000};
 // hargaLarge: tambahan harga untuk ukuran Large
 const hargaLarge = 4000;
 
-// Voucher: model data voucher milik pengguna (Akun)
-class Voucher {
-  final String kode; // Kode voucher
-  final String info; // Keterangan singkat
-  const Voucher(this.kode, this.info);
-}
-
+// voucherSaya: voucher milik pengguna (Akun)
 const voucherSaya = [
-  Voucher('KOPIKITA20', 'Diskon 20% · min. Rp50.000'),
-  Voucher('HEMAT5RB', 'Potongan Rp5.000 · s.d. 31 Okt'),
+  Voucher('KOPIKITA20', 'Diskon 20% · min. Rp50.000', nilai: 20, minBelanja: 50000),
+  Voucher('HEMAT5RB', 'Potongan Rp5.000 · s.d. 31 Okt', tipe: 'potongan', nilai: 5000),
 ];
-
-// statusPesanan: 5 langkah status pesanan sesuai status Firestore
-// Format: [label, catatan]
-const statusPesanan = [
-  ['Menunggu bayar', 'Bayar di kasir dengan tunai atau QRIS'],
-  ['Dibayar', 'Pembayaran dikonfirmasi kasir'],
-  ['Diproses', 'Barista sedang membuat pesananmu'],
-  ['Siap diambil', 'Kami panggil nomor antreanmu'],
-  ['Selesai', 'Terima kasih sudah mampir'],
-];
-
-// Pesanan: model data pesanan aktif
-class Pesanan {
-  final String nomor; // Nomor antrean, mis. "A-014"
-  final bool makanDiTempat; // true = Makan di tempat, false = Ambil sendiri
-  final int nomorMeja; // Nomor meja (bila makan di tempat)
-  final int status; // Index langkah di statusPesanan (0–4)
-  final List<CartItem> items; // Item yang dipesan
-  final int total; // Total dibayar
-
-  const Pesanan({
-    required this.nomor,
-    required this.makanDiTempat,
-    required this.nomorMeja,
-    required this.status,
-    required this.items,
-    required this.total,
-  });
-}
 
 // contohPesananAktif: pesanan aktif awal agar layar Pesanan tidak kosong
 const contohPesananAktif = Pesanan(
