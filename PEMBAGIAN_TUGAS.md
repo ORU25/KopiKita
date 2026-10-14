@@ -98,7 +98,7 @@ Pembagian awal **belum** cukup aman: beberapa file disentuh 3–5 orang. Di bawa
 | `bukaKustomisasi(context, Produk p)` | Pemilik: P4. Dipanggil P3 | Ganti signature → Menu & Beranda rusak | Signature **dibekukan**. `Produk` sudah membawa `id` dari P1. |
 | `config/menu` | Semula P3 (repository) dipakai P4 | P4 menunggu P3 | Dipindah: P4 yang membaca `config/menu` sendiri → P3 & P4 bebas paralel. |
 | `test/widget_test.dart` | P4 (test CartProvider: diskon hardcode 20%), P2 (Login→Beranda butuh Firebase), P5 | Test rusak saat logika berubah | Siapa yang membuat test gagal **memperbaikinya di PR yang sama**. |
-| `DESIGN.md` | Semua | Semua menambah subbagian di titik yang sama + mengedit bagian 5 | Tiap orang hanya mengedit bagiannya; layar baru diletakkan **tepat setelah** bagian terkait (P2 setelah 3.1, P3 setelah 3.3, P4 setelah 3.5, P5 di 3.6/3.7, P1 bagian baru `## 6` di akhir). Bagian 5 "Belum didesain" **hanya diedit P5** di Hari 7. |
+| `DESIGN.md` | Semua | Semua menambah subbagian di titik yang sama + mengedit bagian 5 | Tiap orang hanya mengedit bagiannya; layar baru diletakkan **tepat setelah** bagian terkait (P2 setelah 3.1, P3 setelah 3.3, P4 setelah 3.5, P5 di 3.6/3.7; desain web P1 ada di repo `kopikita-web`). Bagian 5 "Belum didesain" **hanya diedit P5** di Hari 7. |
 | `firestore.rules` | P1, tapi memengaruhi semua | Rules ketat terlalu awal memblokir orang lain | Hari 1–4 pakai *test mode* (berkedaluwarsa), rules final Hari 5, semua uji ulang Hari 6. |
 
 **Kesimpulan:** dengan solusi di atas, file yang diedit bersamaan tinggal `test/widget_test.dart` dan `DESIGN.md`, dan keduanya diedit di blok yang berbeda. Semua edit lain punya satu pemilik atau sudah diurutkan dengan ⏳.
@@ -142,7 +142,7 @@ Pembagian awal **belum** cukup aman: beberapa file disentuh 3–5 orang. Di bawa
 **Hari 2**
 - [ ] Akun Cloudinary + *unsigned upload preset*; upload foto `assets/images/` dan isi `gambarUrl`.
 
-**Web Staf & Admin (Hari 2–6)** — satu aplikasi Flutter Web di folder `lib/web/` (hanya P1), entrypoint `lib/web/main_web.dart` (`flutter run -t lib/web/main_web.dart -d chrome`), memakai model & token `lib/theme/` yang sama (hanya dibaca, tidak diubah). Setelah login, arahkan berdasarkan `role`.
+**Web Staf & Admin (Hari 2–6)** — **repo terpisah `kopikita-web`** (folder `../kopikita-web`, hanya P1): Vite + React + TypeScript + Tailwind + Firebase JS SDK, di-deploy ke Firebase Hosting. Rencana lengkap, skema (`types.ts`), draf `firestore.rules`, dan desain dasbor ada di `kopikita-web/CLAUDE.md` dan `kopikita-web/docs/`. Tipe TypeScript di sana **wajib sama** dengan `lib/models/` di repo ini. Setelah login, arahkan berdasarkan `role`.
 
 - Staf:
   - [ ] Login (email/kata sandi), tolak jika role `pelanggan`.
@@ -150,13 +150,13 @@ Pembagian awal **belum** cukup aman: beberapa file disentuh 3–5 orang. Di bawa
   - [ ] Tombol ubah status: Konfirmasi bayar → Proses → Siap → Selesai, dan Batalkan.
   - [ ] Toggle stok **Habis** per produk.
 - Admin (semua fitur staf, ditambah):
-  - [ ] CRUD menu + upload foto ke Cloudinary (`image_picker` + `http` multipart).
+  - [ ] CRUD menu + upload foto ke Cloudinary (`fetch` + unsigned preset).
   - [ ] CRUD voucher; beri voucher ke pelanggan (tambah ke `users.voucher`).
   - [ ] Kelola pengguna: ubah role pelanggan ↔ staf ↔ admin (staf daftar sendiri lalu dinaikkan role-nya oleh admin — tidak perlu Admin SDK).
   - [ ] Laporan sederhana: jumlah pesanan & omzet per hari dari `orders` berstatus `selesai`.
-- [ ] `firestore.rules` final (Hari 5) sesuai aturan alur status.
+- [ ] `firestore.rules` final (Hari 5) sesuai aturan alur status — file & deploy-nya di repo `kopikita-web`.
 - [ ] Deploy web ke **Firebase Hosting** (Hari 6).
-- [ ] Tambah bagian `## 6. Web Staf & Admin` di akhir `DESIGN.md`.
+- [ ] Desain dasbor dicatat di `kopikita-web/docs/DESIGN.md` (bukan di `DESIGN.md` repo ini).
 - [ ] Review & merge PR (bersama P5).
 
 ### P2 — Auth & Akun
@@ -324,7 +324,7 @@ git branch -d p3/menu-firestore
 
   | File | Pemilik |
   |---|---|
-  | `pubspec.yaml`, `firebase_options.dart`, `firestore.rules`, `lib/models/` (kecuali `cart_item.dart`), `lib/web/`, `DESIGN.md` bagian 6 | P1 |
+  | `pubspec.yaml`, `firebase_options.dart`, `firebase.json`, `lib/seed.dart`, `lib/models/` (kecuali `cart_item.dart`); seluruh repo `kopikita-web` (termasuk `firestore.rules`) | P1 |
   | `lib/main.dart` (setelah PR Fondasi), `login_page.dart`, `register_page.dart`, `account_page.dart` (kecuali blok Voucher saya), layar auth/notifikasi baru | P2 |
   | `home_page.dart`, `menu_page.dart`, `lib/widgets/common.dart`, layar Cari/Favorit | P3 |
   | `cart_provider.dart`, `cart_item.dart` (setelah PR Fondasi), `cart_page.dart`, `customize_page.dart`, blok Voucher saya, halaman Promo/Voucher | P4 |
