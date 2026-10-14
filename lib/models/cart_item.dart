@@ -1,6 +1,8 @@
 // CartItem: model data untuk satu item di keranjang
 // Menyimpan produk beserta pilihan kustomisasinya (ukuran, suhu, gula, es, add-on)
 class CartItem {
+  final String productId; // ID dokumen products/{id} ('' = data dummy)
+  final String gambarUrl; // URL foto Cloudinary ('' = belum ada)
   final String nama; // Nama produk
   final int harga; // Harga satuan SETELAH kustomisasi (dasar + Large + add-on)
   final bool makanan; // true = produk makanan (tanpa opsi minuman)
@@ -17,6 +19,8 @@ class CartItem {
   // Constructor: membuat instance CartItem
   // Parameter opsi memiliki nilai default sesuai pilihan default di Kustomisasi
   const CartItem({
+    this.productId = '',
+    this.gambarUrl = '',
     required this.nama,
     required this.harga,
     this.makanan = false,
@@ -57,6 +61,8 @@ class CartItem {
   // Kegunaan: buat salinan CartItem baru dengan jumlah diubah
   CartItem copyWith({int? jumlah}) {
     return CartItem(
+      productId: productId,
+      gambarUrl: gambarUrl,
       nama: nama,
       harga: harga,
       makanan: makanan,
@@ -69,4 +75,36 @@ class CartItem {
       jumlah: jumlah ?? this.jumlah, // Gunakan jumlah baru atau lama
     );
   }
+
+  // toMap: satu elemen array `items` di dokumen orders/{id}
+  Map<String, dynamic> toMap() => {
+        'productId': productId,
+        'gambarUrl': gambarUrl,
+        'nama': nama,
+        'harga': harga,
+        'jumlah': jumlah,
+        'makanan': makanan,
+        'ukuran': ukuran,
+        'suhu': suhu,
+        'gula': gula,
+        'es': es,
+        'addOn': addOn,
+        'catatan': catatan,
+      };
+
+  // fromMap: kebalikan toMap (dipakai Pesanan.fromMap & "Pesan lagi")
+  factory CartItem.fromMap(Map<String, dynamic> m) => CartItem(
+        productId: m['productId'] ?? '',
+        gambarUrl: m['gambarUrl'] ?? '',
+        nama: m['nama'] ?? '',
+        harga: (m['harga'] ?? 0) as int,
+        jumlah: (m['jumlah'] ?? 1) as int,
+        makanan: m['makanan'] ?? false,
+        ukuran: m['ukuran'] ?? 'Regular',
+        suhu: m['suhu'] ?? 'Es',
+        gula: m['gula'] ?? 'Normal',
+        es: m['es'] ?? 'Normal',
+        addOn: List<String>.from(m['addOn'] ?? const []),
+        catatan: m['catatan'] ?? '',
+      );
 }

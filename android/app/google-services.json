@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "106186318463",
+    "project_id": "kopikita-dev",
+    "storage_bucket": "kopikita-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:106186318463:android:799c25d9a0ca4bf09f554a",
+        "android_client_info": {
+          "package_name": "com.pa.kopikita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7d5rhVMxnQUVw7zmLz7PYVuDIqd7YxD8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
