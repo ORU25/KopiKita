@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_page.dart';
 
 // RegisterPage: layar Daftar (DESIGN.md 3.1a)
-// Kerangka sama dengan Masuk; form berisi nama, email, kata sandi
+// Kerangka sama dengan Masuk; form berisi nama, email, kata sandi.
+// Setelah sukses, AuthGate (main.dart) otomatis pindah ke Beranda.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -43,11 +42,8 @@ class _RegisterPageState extends State<RegisterPage> {
         email: _email.text,
         password: _sandi.text,
       );
-
-      if (!mounted) return;
-      context.read<UserProvider>().refresh();
-      if (!mounted) return;
-      masukAplikasi(context);
+      // Selesai. AuthGate (main.dart) yang memindahkan ke Beranda.
+      // UserProvider otomatis memuat profil via authStateChanges().
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

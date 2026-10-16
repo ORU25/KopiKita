@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../data/dummy_data.dart';
 import '../main.dart';
-import '../providers/user_provider.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -66,8 +65,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // atasAman: tinggi status bar agar tombol notifikasi tidak tertutup
-    final user = context.watch<UserProvider>();
-    final sapaan = user.nama.isEmpty ? 'Hai' : 'Hai, ${user.nama}';
     final atasAman = MediaQuery.paddingOf(context).top;
 
     // SingleChildScrollView: seluruh Beranda bisa digeser
@@ -131,9 +128,9 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(sapaan,
+                    Text('Hai, Rina',
                         style: ts(32, 800,
-                        color: Colors.white, ls: -0.5, height: 1.2)),
+                            color: Colors.white, ls: -0.5, height: 1.2)),
                     const SizedBox(height: 4),
                     Text('Mau ngopi apa hari ini?',
                         style: ts(16, 600, color: Colors.white, height: 1.2)),
