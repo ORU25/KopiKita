@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'providers/cart_provider.dart';
+import 'providers/user_provider.dart';
 import 'screens/account_page.dart';
 import 'screens/home_page.dart';
 import 'screens/login_page.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
         // ChangeNotifierProvider: menyediakan instance CartProvider ke seluruh widget
         // CartProvider akan memberi tahu listener ketika data keranjang berubah
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: const MainApp(),
     ),
