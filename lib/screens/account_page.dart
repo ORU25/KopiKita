@@ -1,120 +1,232 @@
 import 'package:flutter/material.dart';
 
 import '../data/dummy_data.dart';
+import '../services/auth_service.dart';
+import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
-import 'login_page.dart';
+import 'notification_page.dart';
 
 // AccountPage: layar Akun (DESIGN.md 3.8)
+// Semua data user diambil langsung dari users/{uid} via StreamBuilder.
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
 
-  // _keluar: kembali ke Login dan hapus semua halaman sebelumnya
-  void _keluar(BuildContext context) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-      (_) => false,
+  Future<void> _keluar() => AuthService.keluar();
+
+  Future<void> _sheetEditProfil(BuildContext context) async {
+    // Ambil nilai sekarang untuk prefill.
+    final data = await UserRepo.ambil();
+    final ctrl = TextEditingController(text: UserRepo.namaDari(data));
+
+    if (!context.mounted) return;
+    final simpan = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.viewInsetsOf(ctx).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Edit profil', style: ts(18, 800, ls: -0.3)),
+            const SizedBox(height: 14),
+            Text('Nama',
+                style: ts(12, 700, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              style: ts(14, 500),
+              decoration: const InputDecoration(hintText: 'Nama lengkap'),
+              onSubmitted: (_) => Navigator.pop(ctx, true),
+            ),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: 'Simpan',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      ),
     );
+
+    if (simpan != true) return;
+    final nama = ctrl.text.trim();
+    if (nama.length < 2) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Nama terlalu pendek.')),
+        );
+      return;
+    }
+
+    try {
+      await UserRepo.update({'nama': nama});
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Profil diperbarui.')),
+        );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan: $e')),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // SafeArea + ListView: konten bisa di-scroll
     return SafeArea(
       bottom: false,
-      child: ListView(
-        // Padding horizontal 0: baris pengaturan selebar layar agar
-        // highlight InkWell tidak mepet konten; isi lain diberi padding 20 sendiri
-        padding: const EdgeInsets.fromLTRB(0, 24, 0, 170),
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Akun', style: ts(24, 800, ls: -0.4)),
-                const SizedBox(height: 16),
+      child: StreamBuilder(
+        stream: UserRepo.stream(),
+        builder: (context, snap) {
+          final data = snap.data?.data();
+          final nama = UserRepo.namaDari(data);
+          final email = UserRepo.emailDari(data);
+          final role = UserRepo.roleDari(data);
+          final voucherKode = UserRepo.voucherDari(data);
 
-                // Card profil: avatar inisial · nama · email · chevron
-                Material(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () => segeraHadir(context, 'Edit profil'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          // CircleAvatar: inisial 48 latar tint
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: AppColors.tint,
-                            child: Text(
-                              'R',
-                              style: ts(16, 800, color: AppColors.primary),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Rina', style: ts(16, 800)),
-                                Text(
-                                  'rina@email.com',
-                                  style: ts(12, 500, color: AppColors.muted),
+          final namaTampil = nama.isEmpty ? 'Pengguna' : nama;
+          final inisial = namaTampil.trim().isEmpty
+              ? '?'
+              : namaTampil.trim().substring(0, 1).toUpperCase();
+
+          final voucher = voucherKode
+              .map(
+                (kode) => voucherSaya.firstWhere(
+                  (v) => v.kode == kode,
+                  orElse: () => Voucher(kode, 'Voucher tersedia'),
+                ),
+              )
+              .toList();
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(0, 24, 0, 170),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Akun', style: ts(24, 800, ls: -0.4)),
+                    const SizedBox(height: 16),
+                    Material(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => _sheetEditProfil(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: AppColors.tint,
+                                child: Text(
+                                  inisial,
+                                  style: ts(16, 800,
+                                      color: AppColors.primary),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(namaTampil, style: ts(16, 800)),
+                                    Text(
+                                      email,
+                                      style: ts(12, 500,
+                                          color: AppColors.muted),
+                                    ),
+                                    if (role != 'pelanggan')
+                                      Text(
+                                        role == 'admin' ? 'Admin' : 'Staf',
+                                        style: ts(12, 700,
+                                            color: AppColors.primary),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.ink,
+                              ),
+                            ],
                           ),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.ink,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text('Voucher saya', style: ts(16, 800)),
+                  ],
                 ),
-                const SizedBox(height: 16),
-
-                // Voucher saya: daftar horizontal kartu 200×76
-                Text('Voucher saya', style: ts(16, 800)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 76,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: voucherSaya.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => _KartuVoucher(voucherSaya[i]),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Baris pengaturan datar
-          _barisPengaturan(
-            'Edit profil',
-            () => segeraHadir(context, 'Edit profil'),
-          ),
-          _barisPengaturan(
-            'Notifikasi',
-            () => segeraHadir(context, 'Notifikasi'),
-          ),
-          _barisPengaturan('Keluar', () => _keluar(context)),
-        ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 76,
+                child: voucherKode.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          'Belum ada voucher.',
+                          style: ts(13, 500, color: AppColors.muted),
+                        ),
+                      )
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: voucher.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(width: 10),
+                        itemBuilder: (context, i) =>
+                            _KartuVoucher(voucher[i]),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              _barisPengaturan(
+                'Edit profil',
+                () => _sheetEditProfil(context),
+              ),
+              _barisPengaturan(
+                'Notifikasi',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationPage()),
+                ),
+              ),
+              _barisPengaturan('Keluar', _keluar),
+            ],
+          );
+        },
       ),
     );
   }
 
-  // _barisPengaturan: baris 52 tinggi, 14/600, chevron muted, garis bawah divider
   Widget _barisPengaturan(String label, VoidCallback onTap) {
-    // InkWell selebar layar, padding 20 di dalam: konten & garis tetap inset 20
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -136,16 +248,17 @@ class AccountPage extends StatelessWidget {
   }
 }
 
+// _KartuVoucher + _DashedBorderPainter — biarkan sama persis seperti file asli.
+
 // _KartuVoucher: kartu 200×76 radius 18, latar tint, border putus-putus caramel
 class _KartuVoucher extends StatelessWidget {
-  final Voucher v; // Data voucher
+  final Voucher v;
   const _KartuVoucher(this.v);
 
   @override
   Widget build(BuildContext context) {
-    // CustomPaint: menggambar border putus-putus (Flutter tidak punya dashed border bawaan)
     return CustomPaint(
-      foregroundPainter: _DashedBorderPainter(), // Digambar di atas latar tint
+      foregroundPainter: _DashedBorderPainter(),
       child: Container(
         width: 200,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -179,7 +292,6 @@ class _DashedBorderPainter extends CustomPainter {
       ..color = AppColors.caramel
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
-    // Path: persegi bulat seukuran kartu (digeser 0.75 agar garis tidak terpotong)
     final path = Path()
       ..addRRect(
         RRect.fromRectAndRadius(
@@ -187,7 +299,6 @@ class _DashedBorderPainter extends CustomPainter {
           const Radius.circular(18),
         ),
       );
-    // computeMetrics: potong path menjadi segmen 5 px dengan jeda 4 px
     for (final metric in path.computeMetrics()) {
       for (double d = 0; d < metric.length; d += 9) {
         canvas.drawPath(metric.extractPath(d, d + 5), paint);

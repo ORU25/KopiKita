@@ -143,7 +143,9 @@ Urutan alur: **Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keran
 ### 3.1 Login (`screens/Login.png`, `source/Login.dc.html`)
 - Banner atas tinggi 290, latar `ink #2B1810`, radius bawah 24. Teks **rata tengah** (top 64): "KopiKita" 30/800 `cream`, tagline "Pesan kopi favoritmu tanpa antre." 14/500.
 - **Badge logo**: lingkaran 92, latar `bg` (putih), border 4 `surface`, bayangan `float`, padding 12, aset `assets/images/logo-app.png` (dari `kopikita-design/assets/logoAppLatarPutih.png`). Tengah horizontal, top 180 → titik tengahnya tepat di tepi atas card (setengah di banner, setengah di card).
-- Card melayang (top 226, padding 58 20 20 untuk ruang badge): "Masuk" 22/800 + subjudul (keduanya rata tengah) "Masuk untuk mulai memesan." 13 muted → field **Email** (label 12/700 `textSecondary`, input 52 radius 14 latar `fill`, ikon amplop kiri) → field **Kata sandi** (state fokus: latar putih, border 1.5 `primary`, ikon gembok, tombol mata 44 di kanan) → link "Lupa kata sandi?" rata kanan 13/700 `primary` → tombol **Masuk** (akhir card). **Tidak ada login Google** — pemisah "atau" dan tombol "Lanjutkan dengan Google" yang masih terlihat di `screens/Login.png` / `source/Login.dc.html` sudah dihapus; abaikan bagian itu.
+- Card melayang (top 226, padding 58 20 20 untuk ruang badge): "Masuk" 22/800 + subjudul (keduanya rata tengah) "Masuk untuk mulai memesan." 13 muted → field **Email** (label 12/700 `textSecondary`, input 52 radius 14 latar `fill`, ikon amplop kiri) → field **Kata sandi** (state fokus: latar putih, border 1.5 `primary`, ikon gembok, tombol mata 44 di kanan) → link "Lupa kata sandi?" rata kanan 13/700 `primary` → tombol **Masuk** (akhir card).
+- **Login Google tidak diimplementasikan.** Autentikasi hanya email/kata sandi lewat Firebase Auth. Pemisah "atau" dan tombol "Lanjutkan dengan Google" yang masih terlihat di `screens/Login.png` / `source/Login.dc.html` **diabaikan** — sengaja tidak dipakai.
+- **Lupa kata sandi** — `AlertDialog` (radius 20, latar `surface`), bukan halaman baru: judul "Lupa kata sandi" 16/800 ls −0.3 → penjelasan "Masukkan email akunmu. Kami akan mengirim tautan untuk mengatur ulang kata sandi." 13 muted line-height 1.4 → field email (prefill dari field Login, keyboard email, autofocus) → tombol **Batal** 13/700 `muted` dan **Kirim** 13/700 `primary`. Kirim → `FirebaseAuth.sendPasswordResetEmail()`; sukses → SnackBar "Tautan reset dikirim ke {email}"; gagal → SnackBar pesan Bahasa Indonesia dari `AuthService.pesanError`.
 - Bawah (bottom 36, tengah): "Belum punya akun? **Daftar**" (14 muted; "Daftar" 800 `primary`) → layar Daftar (3.1a).
 - Autentikasi: Firebase Auth **email/kata sandi saja**. Masuk berhasil → Beranda.
 - Flutter: banner + badge + card + ajakan bawah adalah widget bersama `AuthScaffold` (`lib/screens/login_page.dart`), dipakai Masuk & Daftar; isi form dikirim lewat `children`.
@@ -152,7 +154,8 @@ Urutan alur: **Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keran
 - Kerangka **sama persis** dengan Login (`AuthScaffold`): banner 290 `ink`, badge logo, card melayang top 226 padding 58 20 20.
 - Isi card: "Daftar" 22/800 + "Buat akun untuk mulai memesan." 13 muted (rata tengah) → field **Nama** (ikon orang, placeholder "Nama lengkap", huruf kapital tiap kata) → field **Email** (ikon amplop) → field **Kata sandi** (ikon gembok, tombol mata 44, placeholder "Minimal 6 karakter") → jarak 20 → tombol utama **Daftar**. Jarak antar-field 14, label field 12/700 `textSecondary`.
 - Bawah: "Sudah punya akun? **Masuk**" → kembali ke Login (pop).
-- Daftar berhasil → Beranda (riwayat Login/Daftar dibuang). Nanti: Firebase Auth `createUserWithEmailAndPassword` + dokumen `users/{uid}` role `pelanggan`.
+- **Implementasi**: `AuthService.daftar(nama, email, password)` (`lib/services/auth_service.dart`): `createUserWithEmailAndPassword` → `updateDisplayName(nama)` → tulis dokumen `users/{uid}` (`nama`, `email`, `role: "pelanggan"`, `favorit: []`, `voucher: ["KOPIKITA20", "HEMAT5RB"]`, `notifikasi: true`, `createdAt`). Jika Firestore gagal, akun Auth dihapus (rollback) agar tidak ada user tanpa dokumen.
+- **Transisi ke Beranda** diurus `AuthGate` (lihat 3.1b), bukan `Navigator.push` manual. Setelah daftar sukses, `authStateChanges()` berubah dan AuthGate otomatis menampilkan Beranda.
 
 ```dart
 // Pola pakai AuthScaffold (lib/screens/register_page.dart)
@@ -165,6 +168,20 @@ AuthScaffold(
   children: [labelField('Nama'), TextField(...), /* Email, Kata sandi */ PrimaryButton(label: 'Daftar', onPressed: _daftar)],
 )
 ```
+
+### 3.1b AuthGate (belum ada gambar; pengatur alur)
+
+- Widget pembungkus di `lib/main.dart` yang menjadi `home:` dari `MaterialApp`. Menentukan layar awal berdasarkan status login Firebase (`FirebaseAuth.instance.authStateChanges()`).
+- Tiga keadaan:
+  - `ConnectionState.waiting` (pertama kali dibuka) → `Scaffold` dengan `CircularProgressIndicator` di tengah. Splash sederhana agar tidak berkedip Login dulu.
+  - `snapshot.hasData` (sudah login) → `NavigationPage` (tab Beranda). Setiap transisi dari belum-login ke sudah-login **mereset tab navbar ke Beranda** (`NavigationPage.tab.value = tabBeranda`) lewat `addPostFrameCallback`.
+  - Selainnya (belum login) → `LoginPage`.
+- Karena AuthGate memantau `authStateChanges()`, layar Login/Tidak perlu navigasi manual: berhasil login → AuthGate otomatis pindah ke Beranda; `AuthService.keluar()` → AuthGate otomatis kembali ke Login.
+- **Tidak ada provider user.** Data profil (`users/{uid}`) dibaca langsung oleh layar yang membutuhkannya lewat `UserRepo` (`lib/services/user_repo.dart`):
+  - `UserRepo.stream()` → `Stream<DocumentSnapshot>` untuk Beranda (sapaan) dan Akun.
+  - `UserRepo.ambil()` → sekali baca, untuk prefill Edit profil dan Notifikasi.
+  - `UserRepo.update(data)` → tulis `users/{uid}` (ganti nama, toggle notifikasi).
+  - Getter aman null-safe: `namaDari`, `emailDari`, `roleDari`, `voucherDari`, `notifikasiDari`.
 
 ### 3.2 Beranda (`screens/Beranda.png`, `source/Main.dc.html`)
 - **Banner** tinggi 280, radius bawah 24, gambar `banner-beranda.jpg` cover, dengan gradasi gelap `ink` 0% (35% tinggi) → 85% (bawah) agar sapaan terbaca. Tanpa logo. Tombol notifikasi bulat 44 di kanan atas (top 24, right 20; latar `rgba(251,239,224,0.14)`, ikon `cream`).
@@ -239,7 +256,10 @@ Tanpa navbar. Padding 24 20, gap 16.
 - Judul "Akun" 24/800.
 - Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted · chevron.
 - **Voucher saya**: judul 16/800, daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`.
-- Baris pengaturan datar (52 tinggi, 14/600, chevron muted): **Edit profil**, **Notifikasi**, **Keluar**.
+- Baris pengaturan datar (52 tinggi, 14/600, chevron muted, garis bawah `divider`):
+  - **Edit profil** — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + `viewInsets.bottom` agar naik di atas keyboard): judul "Edit profil" 18/800 ls −0.3 → label "Nama" 12/700 `textSecondary` → field nama (52, radius 14, latar `fill`, autofocus, `textCapitalization: words`) → tombol utama **Simpan** (52, radius 16). Simpan → tulis `users/{uid}.nama` lewat `UserRepo.update`; SnackBar "Profil diperbarui." Validasi: nama < 2 karakter ditolak.
+  - **Notifikasi** — membuka halaman `NotificationPage`: `AppBar` latar `bg`, judul "Notifikasi" 18/800 ls −0.3, `titleSpacing: 0`. Satu `SwitchListTile` untuk `users/{uid}.notifikasi` (thumb aktif `primary`), judul "Notifikasi pesanan" 14/700, subtitle "Dapatkan pemberitahuan saat status pesananmu berubah." 12 muted. Perubahan langsung ditulis ke Firestore (optimistic UI + rollback bila gagal).
+  - **Keluar** — `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
 - Bawah: strip keranjang + navbar (tab Akun aktif).
 
 ---

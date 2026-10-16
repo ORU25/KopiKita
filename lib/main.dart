@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -33,12 +34,45 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MaterialApp: widget utama yang menyediakan konfigurasi aplikasi Material
     return MaterialApp(
-      title: 'KopiKita', // Judul aplikasi
-      debugShowCheckedModeBanner: false, // Menyembunyikan banner debug
-      theme: buildAppTheme(), // Tema global dari lib/theme/app_theme.dart
-      home: const LoginPage(), // Alur dimulai dari Login
+      title: 'KopiKita',
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      home: const AuthGate(), // AuthGate: pilih Login / Beranda otomatis
+    );
+  }
+}
+
+// AuthGate: menentukan layar awal berdasarkan status login Firebase.
+// Belum login → LoginPage. Sudah login → NavigationPage (Beranda).
+// ponytail: pakai authStateChanges() langsung, tidak perlu provider baru.
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        // Saat pertama kali dibuka, snap.connectionState == waiting.
+        // Tampilkan splash sederhana agar tidak berkedip Login dulu.
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.hasData) {
+          // Reset tab ke Beranda setiap transisi login (sekali per transisi).
+          // addPostFrameCallback: aman dipanggil dari dalam build.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (NavigationPage.tab.value != NavigationPage.tabBeranda) {
+              NavigationPage.tab.value = NavigationPage.tabBeranda;
+            }
+          });
+          return const NavigationPage();
+        }
+        return const LoginPage();
+      },
     );
   }
 }
