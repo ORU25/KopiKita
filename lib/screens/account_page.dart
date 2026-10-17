@@ -2,11 +2,13 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/voucher.dart';
 import '../services/acc_cloud.dart';
+import '../models/voucher.dart'; // Ganti import dummy dengan model asli
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';

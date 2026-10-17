@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart'; // Ditambahkan untuk PaintingBinding
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -70,7 +71,14 @@ class AuthService {
     }
   }
 
-  static Future<void> keluar() => _auth.signOut();
+  /// Keluar dari akun + bersihkan cache gambar (mencegah bug gambar tertukar di Web)
+  static Future<void> keluar() async {
+    await _auth.signOut();
+    
+    // PERBAIKAN: Membersihkan memori gambar saat logout
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+  }
 
   /// Terjemahkan error Firebase ke pesan Indonesia.
   static String pesanError(Object e) {

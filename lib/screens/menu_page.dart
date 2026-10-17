@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/dummy_data.dart';
 import '../main.dart';
+import '../models/produk.dart';
 import '../providers/cart_provider.dart';
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/favorit.dart';
+import '../widgets/menu_row.dart';
+import '../widgets/state_views.dart';
 import 'customize_page.dart';
+import 'search_page.dart';
 
 // MenuPage: layar Menu (DESIGN.md 3.3)
 // Header collapsing + bar filter sticky + rekomendasi horizontal + daftar menu datar
+// Data produk realtime dari Firestore (products) lewat ProductRepository.
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
 
@@ -22,12 +28,15 @@ class _MenuPageState extends State<MenuPage> {
   bool _collapsed = false;
   // State: _kategoriAktif = index chip kategori terpilih
   int _kategoriAktif = 0;
-  // State: _favorit = nama menu yang ditandai favorit
-  final Set<String> _favorit = {'Caramel Latte'};
+  // State: _produk = stream produk; dibuat ulang saat "Coba lagi"
+  Stream<List<Produk>> _produk = ProductRepository.stream();
   // _kunciSeksi: GlobalKey tiap header kategori untuk scroll ke seksi
   final Map<String, GlobalKey> _kunciSeksi = {
     for (final k in kategoriMenu) k: GlobalKey(),
   };
+
+  // _muatUlang: berlangganan ulang ke produk setelah error
+  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
 
   // _onScroll: ganti bentuk header berdasarkan offset scroll
   // Histeresis: collapse saat > 60, expand lagi saat < 8 (agar tidak berkedip)
@@ -57,6 +66,71 @@ class _MenuPageState extends State<MenuPage> {
   // _bukaKustomisasi: buka sheet Kustomisasi untuk produk terpilih
   void _bukaKustomisasi(Produk p) => bukaKustomisasi(context, p);
 
+  // _bukaCari: buka layar Cari; daftar yang sudah dimuat dikirim sebagai data awal
+  void _bukaCari(List<Produk>? daftar) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SearchPage(awal: daftar)),
+    );
+  }
+
+  // _bukaInfoKedai: tampilkan alert berisi alamat & jam operasional kedai
+  void _bukaInfoKedai() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        title: Text('Info Kedai', style: ts(18, 800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.location_on_outlined,
+                    size: 20, color: AppColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Jl. Universitas Mulawarman',
+                    style: ts(14, 600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.access_time_rounded,
+                    size: 20, color: AppColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '10:00 – 23:00 WITA',
+                    style: ts(14, 600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Tutup',
+                style: ts(13, 800, color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // context.watch: rebuild saat metode pesanan berubah
@@ -83,24 +157,63 @@ class _MenuPageState extends State<MenuPage> {
           ),
           // Expanded: area scroll mengisi sisa layar
           Expanded(
-            // NotificationListener: memantau offset scroll untuk header
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: CustomScrollView(
-                slivers: [
-                  // PinnedHeaderSliver: bar filter tetap di atas saat scroll
-                  PinnedHeaderSliver(child: _barFilter()),
-                  // Seksi Rekomendasi (horizontal)
-                  SliverToBoxAdapter(child: _seksiRekomendasi()),
-                  // Daftar menu vertikal per kategori
-                  for (final k in kategoriMenu.skip(1))
-                    SliverToBoxAdapter(child: _seksiKategori(k)),
-                  // Ruang bawah ≥ tinggi sheet navbar agar item terakhir terlihat
-                  const SliverToBoxAdapter(child: SizedBox(height: 170)),
-                ],
+            // FavoritBuilder: daftar favorit user (tombol hati di tiap baris)
+            child: FavoritBuilder(
+              builder: (context, favorit, _) => StreamBuilder<List<Produk>>(
+                stream: _produk,
+                builder: (context, snap) => _areaScroll(snap, favorit),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // _areaScroll: bar filter selalu tampil; isinya memuat / error / kosong / daftar menu
+  Widget _areaScroll(AsyncSnapshot<List<Produk>> snap, Set<String> favorit) {
+    // keadaan: tampilan memuat/error/kosong; null bila daftar menu siap tampil
+    final keadaan = keadaanStream<List<Produk>>(
+      snap,
+      onCoba: _muatUlang,
+      kosong: (d) => d.isEmpty,
+      tampilanKosong: const EmptyView(
+        icon: Icons.coffee_outlined,
+        judul: 'Menu belum tersedia',
+        pesan: 'Kedai belum menambahkan menu. Coba lagi nanti.',
+      ),
+    );
+    final data = snap.data ?? const <Produk>[];
+
+    // NotificationListener: memantau offset scroll untuk header
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: CustomScrollView(
+        slivers: [
+          // PinnedHeaderSliver: bar filter tetap di atas saat scroll
+          PinnedHeaderSliver(child: _barFilter(snap.data)),
+          if (keadaan != null)
+            // SliverFillRemaining: keadaan mengisi sisa area di bawah bar filter
+            SliverFillRemaining(hasScrollBody: false, child: keadaan)
+          else ...[
+            // Seksi Rekomendasi (horizontal)
+            SliverToBoxAdapter(
+              child: _seksiRekomendasi(
+                data.where((p) => p.rekomendasi).toList(),
+              ),
+            ),
+            // Daftar menu vertikal per kategori
+            for (final k in kategoriMenu.skip(1))
+              SliverToBoxAdapter(
+                child: _seksiKategori(
+                  k,
+                  data.where((p) => p.kategori == k).toList(),
+                  favorit,
+                ),
+              ),
+            // Ruang bawah ≥ tinggi sheet navbar agar item terakhir terlihat
+            const SliverToBoxAdapter(child: SizedBox(height: 170)),
+          ],
         ],
       ),
     );
@@ -129,7 +242,7 @@ class _MenuPageState extends State<MenuPage> {
               icon: Icons.info_outline_rounded,
               tooltip: 'Info kedai',
               foreground: AppColors.primary,
-              onTap: () => segeraHadir(context, 'Info kedai'),
+              onTap: _bukaInfoKedai, // ← Alert info kedai
             ),
           ],
         ),
@@ -197,7 +310,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   // _barFilter: chip kategori geser horizontal + tombol cari
-  Widget _barFilter() {
+  Widget _barFilter(List<Produk>? daftar) {
     return Container(
       color: AppColors.bg, // Latar agar konten di belakangnya tertutup
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
@@ -245,7 +358,7 @@ class _MenuPageState extends State<MenuPage> {
             icon: Icons.search_rounded,
             tooltip: 'Cari menu',
             foreground: AppColors.primary,
-            onTap: () => segeraHadir(context, 'Pencarian menu'),
+            onTap: () => _bukaCari(daftar),
           ),
         ],
       ),
@@ -253,7 +366,9 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   // _seksiRekomendasi: judul + daftar horizontal kartu ringkas 276 lebar
-  Widget _seksiRekomendasi() {
+  // Hanya produk berflag rekomendasi; tanpa produk → seksi disembunyikan
+  Widget _seksiRekomendasi(List<Produk> daftar) {
+    if (daftar.isEmpty) return const SizedBox.shrink();
     return Column(
       key: _kunciSeksi['Rekomendasi'],
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,50 +384,73 @@ class _MenuPageState extends State<MenuPage> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             clipBehavior: Clip.none,
-            itemCount: rekomendasi.length,
+            itemCount: daftar.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
-              final p = rekomendasi[i];
+              final p = daftar[i];
               // Container: kartu putih radius 20, padding 10, bayangan card
-              return Container(
-                width: 276,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: AppShadows.card,
-                ),
-                child: Row(
-                  children: [
-                    ProductThumb(size: 64, nama: p.nama),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              // Opacity: menu habis tampil 0.6
+              return Opacity(
+                key: ValueKey(p.id),
+                opacity: p.habis ? 0.6 : 1,
+                child: Container(
+                  width: 276,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppShadows.card,
+                  ),
+                  child: Row(
+                    children: [
+                      // Stack: thumbnail 64 + badge "Habis" di pojok kiri atas
+                      Stack(
                         children: [
-                          Text(
-                            p.nama,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: ts(14, 700),
+                          ProductThumb(
+                            size: 64,
+                            makanan: p.makanan,
+                            nama: p.nama,
+                            url: p.gambarUrl,
                           ),
-                          Text(
-                            p.deskripsi,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: ts(12, 500, color: AppColors.muted),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            rp(p.harga),
-                            style: ts(13, 800, color: AppColors.primary),
-                          ),
+                          if (p.habis)
+                            const Positioned(
+                              left: 4,
+                              top: 4,
+                              child: HabisBadge(),
+                            ),
                         ],
                       ),
-                    ),
-                    AddButton(onTap: () => _bukaKustomisasi(p)),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.nama,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: ts(14, 700),
+                            ),
+                            Text(
+                              p.deskripsi,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: ts(12, 500, color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              rp(p.harga),
+                              style: ts(13, 800, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AddButton(
+                        onTap: p.habis ? null : () => _bukaKustomisasi(p),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -324,8 +462,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   // _seksiKategori: header kategori + baris datar tiap menu
-  Widget _seksiKategori(String kategori) {
-    final daftar = daftarMenu.where((p) => p.kategori == kategori).toList();
+  Widget _seksiKategori(String kategori, List<Produk> daftar, Set<String> favorit) {
     // Column tanpa padding horizontal: baris menu selebar layar agar
     // highlight InkWell tidak mepet konten (padding 20 ada di dalam baris)
     return Column(
@@ -348,121 +485,20 @@ class _MenuPageState extends State<MenuPage> {
             ],
           ),
         ),
-        // ...map: setiap produk jadi satu baris datar
-        ...daftar.map(_barisMenu),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  // _barisMenu: baris datar (padding 14 0, garis bawah dividerList)
-  Widget _barisMenu(Produk p) {
-    final fav = _favorit.contains(p.nama);
-    // Opacity: menu habis tampil 0.6
-    return Opacity(
-      opacity: p.habis ? 0.6 : 1,
-      // InkWell selebar layar: highlight punya ruang 20 di kiri-kanan konten
-      child: InkWell(
-        onTap: p.habis ? null : () => _bukaKustomisasi(p),
-        // Padding 20 di dalam InkWell: konten & garis pemisah tetap inset 20
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.dividerList)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stack: thumbnail 84 + badge "Habis" di pojok kiri atas
-                Stack(
-                  children: [
-                    ProductThumb(size: 84, makanan: p.makanan, nama: p.nama),
-                    if (p.habis)
-                      Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Container(
-                          height: 22,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.ink,
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: Text(
-                            'Habis',
-                            style: ts(12, 700, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 14),
-                // Expanded: nama, deskripsi, dan harga
-                Expanded(
-                  child: SizedBox(
-                    height: 84,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(p.nama, style: ts(14, 700)),
-                        const SizedBox(height: 2),
-                        Text(
-                          p.deskripsi,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: ts(
-                            12,
-                            500,
-                            color: AppColors.muted,
-                            height: 1.35,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          rp(p.harga),
-                          style: ts(14, 800, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Kolom kanan: tombol hati di atas, tombol + di bawah
-                Column(
-                  children: [
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton(
-                        tooltip: fav
-                            ? 'Hapus dari favorit'
-                            : 'Tambah ke favorit',
-                        onPressed: () => setState(
-                          () => fav
-                              ? _favorit.remove(p.nama)
-                              : _favorit.add(p.nama),
-                        ),
-                        icon: Icon(
-                          fav
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          size: 22,
-                          color: fav ? AppColors.promoLabel : AppColors.muted,
-                        ),
-                      ),
-                    ),
-                    AddButton(
-                      onTap: p.habis ? null : () => _bukaKustomisasi(p),
-                    ),
-                  ],
-                ),
-              ],
+        // Kategori tanpa produk: keterangan singkat agar chip tetap bermakna
+        if (daftar.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Text(
+              'Belum ada menu di kategori ini.',
+              style: ts(13, 500, color: AppColors.muted),
             ),
           ),
-        ),
-      ),
+        // map: setiap produk jadi satu baris datar
+        for (final p in daftar)
+          BarisMenu(key: ValueKey(p.id), produk: p, favorit: favorit.contains(p.id)),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

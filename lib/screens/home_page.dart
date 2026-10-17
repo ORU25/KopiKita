@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/dummy_data.dart';
 import '../main.dart';
+import '../models/produk.dart';
 import '../providers/cart_provider.dart';
+import '../services/product_repository.dart';
+import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/state_views.dart';
 import 'customize_page.dart';
+import 'favorite_page.dart';
+import 'notification_page.dart';
+import 'orders_page.dart';
 
 // HomePage: layar Beranda (DESIGN.md 3.2)
 // Banner gambar + card melayang (sapaan, metode pesan, aksi cepat) + slider promo
-// + daftar "Paling laris"
+// + daftar "Paling laris" (realtime dari Firestore)
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -24,6 +30,19 @@ class _HomePageState extends State<HomePage> {
   final PageController _promoController = PageController(viewportFraction: 0.82);
   // State: _promoAktif menyimpan index kartu promo yang sedang tampil (untuk dot)
   int _promoAktif = 0;
+  // State: _produk = stream produk untuk "Paling laris"; dibuat ulang saat "Coba lagi"
+  Stream<List<Produk>> _produk = ProductRepository.stream();
+  // _user: stream users/{uid} untuk sapaan "Hai, {nama}" (null bila belum login)
+  final _user = UserRepo.stream();
+
+  // _muatUlang: berlangganan ulang ke produk setelah error
+  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
+
+  // _namaDepan: kata pertama nama lengkap agar sapaan muat satu baris
+  String _namaDepan(String nama) {
+    final bagian = nama.trim().split(RegExp(r'\s+'));
+    return bagian.first;
+  }
 
   // dispose: membersihkan controller saat widget dihancurkan
   @override
@@ -99,7 +118,7 @@ class _HomePageState extends State<HomePage> {
                   child: Image.asset(
                     'assets/images/banner-beranda.jpg',
                     fit: BoxFit.cover,
-                    alignment: const Alignment(0, -0.28),
+                    alignment: const Alignment(0, 0),
                   ),
                 ),
               ),
@@ -113,14 +132,15 @@ class _HomePageState extends State<HomePage> {
                   background: AppColors.cream.withValues(alpha: 0.14),
                   foreground: AppColors.cream,
                   shadow: false,
-                  onTap: () => segeraHadir(context, 'Notifikasi'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationPage(),
+                    ),
+                  ),
                 ),
               ),
               // Positioned: sapaan di atas card, menimpa banner gelap.
-              // left 32 = tepi card 16 + padding 16, sejajar isi card
-              // (bukan sudut card yang melengkung).
-              // Nama→subjudul rapat (4), subjudul→card 12. Line-height 1.2 agar
-              // tinggi pasti: 32×1.2 + 4 + 16×1.2 = 61.6 → top = 226 − 12 − 61.6
               Positioned(
                 top: 152.4,
                 left: 32,
@@ -128,9 +148,20 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Hai, Rina',
-                        style: ts(32, 800,
-                            color: Colors.white, ls: -0.5, height: 1.2)),
+                    // StreamBuilder: nama dari users/{uid}.nama
+                    StreamBuilder(
+                      stream: _user,
+                      builder: (context, snap) {
+                        final nama = UserRepo.namaDari(snap.data?.data());
+                        return Text(
+                          nama.trim().isEmpty ? 'Hai!' : 'Hai, ${_namaDepan(nama)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: ts(32, 800,
+                              color: Colors.white, ls: -0.5, height: 1.2),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 4),
                     Text('Mau ngopi apa hari ini?',
                         style: ts(16, 600, color: Colors.white, height: 1.2)),
@@ -153,7 +184,8 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(child: Text('Promo untukmu', style: ts(16, 800))),
                 GestureDetector(
-                  onTap: () => segeraHadir(context, 'Daftar promo'),
+                  // 1. UBAH KE TAB AKUN (VOUCHER)
+                  onTap: () => NavigationPage.tab.value = NavigationPage.tabAkun,
                   child: Text('Lihat semua',
                       style: ts(13, 700, color: AppColors.promoLabel)),
                 ),
@@ -189,11 +221,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          // Tanpa SizedBox: area tap 44 sudah memberi jarak ±19 di atas dot
 
           // Indikator dot: aktif 20×6 primary, lainnya 6×6 pending.
-          // Tap dot → lompat ke kartu itu. Area tap 44 tinggi & ±22 dari
-          // tengah dot (target sentuh 44×44) tanpa mengubah jarak dot 6.
           SizedBox(
             height: 44,
             child: LayoutBuilder(
@@ -239,54 +268,93 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 4),
-          // Daftar menu terlaris: baris datar (bukan card)
-          for (final p in rekomendasi)
-            _barisLaris(p, terakhir: p == rekomendasi.last),
+          // Daftar menu terlaris: baris datar (bukan card), realtime dari Firestore
+          StreamBuilder<List<Produk>>(
+            stream: _produk,
+            builder: (context, snap) {
+              // keadaan: memuat / error / kosong; null bila daftar siap tampil
+              final keadaan = keadaanStream<List<Produk>>(
+                snap,
+                onCoba: _muatUlang,
+                kosong: (d) => !d.any((p) => p.rekomendasi),
+                tampilanKosong: const EmptyView(
+                  icon: Icons.coffee_outlined,
+                  judul: 'Belum ada menu terlaris',
+                  pesan: 'Menu pilihan kedai akan tampil di sini.',
+                ),
+              );
+              if (keadaan != null) return keadaan;
+              // Maksimal 4 baris (urutan mengikuti katalog)
+              final laris =
+                  snap.requireData.where((p) => p.rekomendasi).take(4).toList();
+              return Column(
+                children: [
+                  for (final (i, p) in laris.indexed)
+                    _barisLaris(p, terakhir: i == laris.length - 1),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
   // _barisLaris: baris datar ringkas (thumbnail 64 · nama/deskripsi/harga · +)
-  // Ketuk baris atau + → sheet Kustomisasi
   Widget _barisLaris(Produk p, {bool terakhir = false}) {
-    // InkWell selebar layar: highlight punya ruang 20 di kiri-kanan konten
-    return InkWell(
-      onTap: () => bukaKustomisasi(context, p),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            border: terakhir
-                ? null
-                : const Border(
-                    bottom: BorderSide(color: AppColors.dividerList)),
-          ),
-          child: Row(
-            children: [
-              ProductThumb(size: 64, makanan: p.makanan, nama: p.nama),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Opacity(
+      key: ValueKey(p.id),
+      opacity: p.habis ? 0.6 : 1,
+      child: InkWell(
+        onTap: p.habis ? null : () => bukaKustomisasi(context, p),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              border: terakhir
+                  ? null
+                  : const Border(
+                      bottom: BorderSide(color: AppColors.dividerList)),
+            ),
+            child: Row(
+              children: [
+                Stack(
                   children: [
-                    Text(p.nama, style: ts(14, 700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      p.deskripsi,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: ts(12, 500, color: AppColors.muted),
+                    ProductThumb(
+                      size: 64,
+                      makanan: p.makanan,
+                      nama: p.nama,
+                      url: p.gambarUrl,
                     ),
-                    const SizedBox(height: 4),
-                    Text(rp(p.harga),
-                        style: ts(14, 800, color: AppColors.primary)),
+                    if (p.habis)
+                      const Positioned(left: 4, top: 4, child: HabisBadge()),
                   ],
                 ),
-              ),
-              AddButton(onTap: () => bukaKustomisasi(context, p)),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.nama, style: ts(14, 700)),
+                      const SizedBox(height: 2),
+                      Text(
+                        p.deskripsi,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ts(12, 500, color: AppColors.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(rp(p.harga),
+                          style: ts(14, 800, color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+                AddButton(
+                  onTap: p.habis ? null : () => bukaKustomisasi(context, p),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -295,7 +363,6 @@ class _HomePageState extends State<HomePage> {
 
   // _kartuMelayang: card putih berisi sapaan, 2 aksi besar, dan 4 aksi cepat
   Widget _kartuMelayang() {
-    // Container: card radius 24, padding 16, bayangan float
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -330,29 +397,38 @@ class _HomePageState extends State<HomePage> {
           const Divider(height: 1, color: AppColors.dividerSoft),
           const SizedBox(height: 14),
 
-          // 4. Empat aksi cepat
+          // 4. Empat aksi cepat: Voucher · Favorit · Menu · Pesan Lagi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _AksiCepat(
-                icon: Icons.sell_outlined,
-                label: 'Promo',
-                onTap: () => segeraHadir(context, 'Promo'),
-              ),
               _AksiCepat(
                 icon: Icons.confirmation_number_outlined,
                 label: 'Voucher',
                 onTap: () => NavigationPage.tab.value = NavigationPage.tabAkun,
               ),
+              // Favorit: layar daftar favorit milik P3
               _AksiCepat(
                 icon: Icons.favorite_border_rounded,
                 label: 'Favorit',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavoritePage()),
+                ),
+              ),
+              // Menu: pindah ke tab Menu
+              _AksiCepat(
+                icon: Icons.restaurant_menu_rounded,
+                label: 'Menu',
                 onTap: () => NavigationPage.tab.value = NavigationPage.tabMenu,
               ),
+              // 2. Pesan Lagi: menuju tab Pesanan BAGIAN RIWAYAT
               _AksiCepat(
-                icon: Icons.sync_rounded,
+                icon: Icons.receipt_long_rounded,
                 label: 'Pesan Lagi',
-                onTap: () => NavigationPage.tab.value = NavigationPage.tabPesanan,
+                onTap: () {
+                  OrdersPage.mintaRiwayat(); // Memaksa tab Riwayat terbuka
+                  NavigationPage.tab.value = NavigationPage.tabPesanan;
+                },
               ),
             ],
           ),
@@ -371,7 +447,6 @@ class _AksiBesar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // InkWell: efek ripple saat ditekan
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -379,7 +454,6 @@ class _AksiBesar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           children: [
-            // SizedBox: area gambar 76×56, gambar tinggi 48 tanpa latar
             SizedBox(
               width: 76,
               height: 56,
@@ -394,7 +468,7 @@ class _AksiBesar extends StatelessWidget {
   }
 }
 
-// _AksiCepat: ikon garis 24 primary + label 12/500, lebar 72
+// _AksiCepat: ikon garis 24 primary + label 12/500, lebar 72.
 class _AksiCepat extends StatelessWidget {
   final IconData icon; // Ikon aksi
   final String label; // Teks label
@@ -414,11 +488,18 @@ class _AksiCepat extends StatelessWidget {
             children: [
               Icon(icon, size: 24, color: AppColors.primary),
               const SizedBox(height: 8),
-              Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  softWrap: false,
-                  style: ts(12, 500, color: AppColors.textSecondary)),
+              Text(
+                label,
+                maxLines: 2,
+                softWrap: true,
+                textAlign: TextAlign.center,
+                style: ts(
+                  12,
+                  500,
+                  color: AppColors.textSecondary,
+                  height: 1.15,
+                ),
+              ),
             ],
           ),
         ),
@@ -428,7 +509,6 @@ class _AksiCepat extends StatelessWidget {
 }
 
 // _KartuPromo: kartu promo 128 tinggi, radius 24, isi gambar banner
-// (teks promo sudah ada di gambar; label dipakai pembaca layar)
 class _KartuPromo extends StatelessWidget {
   final String gambar; // Path aset banner promo
   final String label; // Deskripsi promo untuk aksesibilitas
@@ -436,7 +516,6 @@ class _KartuPromo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Padding kanan 12 = jarak antar kartu
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: ClipRRect(

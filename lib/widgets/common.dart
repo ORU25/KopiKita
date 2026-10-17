@@ -1,4 +1,5 @@
 // Widget bersama yang dipakai di banyak layar (DESIGN.md bagian 2)
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,7 +11,7 @@ import '../theme/app_theme.dart';
 // segeraHadir: menampilkan SnackBar untuk fitur yang belum didesain
 void segeraHadir(BuildContext context, String fitur) {
   ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar() // Tutup snackbar sebelumnya agar tidak menumpuk
+    ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text('$fitur segera hadir')));
 }
 
@@ -19,17 +20,15 @@ String rp(int v) => CartProvider.formatRupiah(v);
 
 // PrimaryButton: tombol utama tinggi 52, radius 16, latar primary, teks putih 15/700
 class PrimaryButton extends StatelessWidget {
-  final String label; // Teks tombol
-  final VoidCallback? onPressed; // Aksi saat ditekan (null = nonaktif)
+  final String label;
+  final VoidCallback? onPressed;
   const PrimaryButton({super.key, required this.label, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    // SizedBox: memaksa tinggi 52 dan lebar penuh
     return SizedBox(
       height: 52,
       width: double.infinity,
-      // FilledButton: tombol Material 3 dengan latar penuh
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
@@ -45,12 +44,12 @@ class PrimaryButton extends StatelessWidget {
 
 // RoundIconButton: tombol ikon bulat 44 (target sentuh minimum 44×44)
 class RoundIconButton extends StatelessWidget {
-  final IconData icon; // Ikon tombol
-  final VoidCallback onTap; // Aksi saat ditekan
-  final String tooltip; // Label aksesibilitas
-  final Color background; // Warna latar (default putih)
-  final Color foreground; // Warna ikon (default ink)
-  final bool shadow; // true = pakai bayangan chip
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+  final Color background;
+  final Color foreground;
+  final bool shadow;
   const RoundIconButton({
     super.key,
     required this.icon,
@@ -63,7 +62,6 @@ class RoundIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Container: lingkaran 44 dengan bayangan lembut
     return Container(
       width: 44,
       height: 44,
@@ -72,7 +70,6 @@ class RoundIconButton extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: shadow ? AppShadows.chip : null,
       ),
-      // IconButton: menangani tap + efek ripple + tooltip
       child: IconButton(
         onPressed: onTap,
         tooltip: tooltip,
@@ -83,26 +80,22 @@ class RoundIconButton extends StatelessWidget {
 }
 
 // AddButton: tombol bulat tambah (+) 36 visual, hit area 44
-// Saat menu habis: latar disabled dan tidak bisa ditekan
 class AddButton extends StatelessWidget {
-  final VoidCallback? onTap; // null = menu habis
+  final VoidCallback? onTap;
   const AddButton({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // Semantics: label aksesibilitas untuk pembaca layar
     return Semantics(
       button: true,
       label: 'Tambah',
-      // GestureDetector: area sentuh 44×44 di sekitar lingkaran 36
       child: GestureDetector(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque, // Area transparan tetap bisa ditekan
+        behavior: HitTestBehavior.opaque,
         child: SizedBox(
           width: 44,
           height: 44,
           child: Center(
-            // Container: lingkaran 36 dengan ikon + putih
             child: Container(
               width: 36,
               height: 36,
@@ -119,59 +112,136 @@ class AddButton extends StatelessWidget {
   }
 }
 
-// ProductThumb: thumbnail produk radius 10 (sengaja tidak terlalu bulat)
-// Foto sementara dari gambarMenu (assets/images) berdasarkan nama produk;
-// bila tidak ada foto: placeholder tint + ikon. Nanti diganti foto Cloudinary
+// HabisBadge: lencana "Habis" (tinggi 22, latar ink, teks putih 12/700)
+class HabisBadge extends StatelessWidget {
+  const HabisBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.ink,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Text('Habis', style: ts(12, 700, color: Colors.white)),
+    );
+  }
+}
+
+// ProductThumb: thumbnail produk radius 10.
+// PERBAIKAN FINAL FLUTTER WEB:
+// Menggunakan imageBuilder pada CachedNetworkImage. Ini memastikan gambar
+// digambar menggunakan DecorationImage (sama seperti aset lokal) sehingga
+// CanvasKit tidak merendernya sebagai kotak hitam saat kembali dari navigasi.
 class ProductThumb extends StatelessWidget {
-  final double size; // Ukuran sisi thumbnail
-  final bool makanan; // true = ikon makanan, false = ikon cangkir
-  final String? nama; // Nama produk untuk mencari foto di gambarMenu
+  final double size;
+  final bool makanan;
+  final String? nama;
+  final String? url;
   const ProductThumb({
     super.key,
     required this.size,
     this.makanan = false,
     this.nama,
+    this.url,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final gambar = gambarMenu[nama];
-    if (gambar != null) {
-      // ClipRRect: foto cover radius 10
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Image.asset(gambar, width: size, height: size, fit: BoxFit.cover),
-      );
-    }
+  Widget _placeholder() {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.tint,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
       ),
-      // Icon: ikon placeholder berwarna primary, ukuran ~40% thumbnail
       child: Icon(
         makanan ? Icons.bakery_dining_outlined : Icons.coffee_outlined,
         color: AppColors.primary,
-        size: size * 0.4,
+        size: size * 0.7,
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final foto = url;
+
+    // Jalur 1: URL Cloudinary (Gambar dari Web Admin)
+    if (foto != null && foto.isNotEmpty) {
+      return RepaintBoundary(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: size,
+            height: size,
+            color: Colors.transparent, // Latar cadangan
+            child: CachedNetworkImage(
+              key: ValueKey(foto),
+              imageUrl: foto,
+              width: size,
+              height: size,
+              // Matikan transisi agar tidak memicu bug layer transparan di Web
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (_, _) => _placeholder(),
+              errorWidget: (_, _, _) => _placeholder(),
+              // imageBuilder: Menggambar gambar dengan DecorationImage.
+              // Sangat stabil di Flutter Web (tidak jadi hitam).
+              imageBuilder: (context, imageProvider) => Container(
+                key: ValueKey(foto),
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: imageProvider,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Jalur 2: Asset lokal (Data Dummy)
+    final gambar = gambarMenu[nama];
+    if (gambar != null) {
+      return RepaintBoundary(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: AppColors.tint,
+            borderRadius: BorderRadius.circular(10),
+            image: DecorationImage(
+              image: AssetImage(gambar),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Jalur 3: Tanpa gambar
+    return _placeholder();
   }
 }
 
 // SegmentedPill: segmented control dengan wadah padding 4
-// Dipakai di header Menu, Kustomisasi, dan Keranjang dengan warna berbeda
 class SegmentedPill extends StatelessWidget {
-  final List<String> options; // Label tiap pilihan
-  final int selected; // Index pilihan aktif
-  final ValueChanged<int> onChanged; // Callback saat pilihan diganti
-  final Color background; // Latar wadah
-  final Color selectedBackground; // Latar item terpilih
-  final Color selectedForeground; // Warna teks item terpilih
-  final Color foreground; // Warna teks item tidak terpilih
-  final double itemHeight; // Tinggi item (36–40)
-  final bool shadow; // Bayangan wadah
+  final List<String> options;
+  final int selected;
+  final ValueChanged<int> onChanged;
+  final Color background;
+  final Color selectedBackground;
+  final Color selectedForeground;
+  final Color foreground;
+  final double itemHeight;
+  final bool shadow;
   const SegmentedPill({
     super.key,
     required this.options,
@@ -187,7 +257,6 @@ class SegmentedPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Container: wadah luar radius 16
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -195,15 +264,12 @@ class SegmentedPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: shadow ? AppShadows.chip : null,
       ),
-      // Row: item sama lebar (Expanded)
       child: Row(
         children: [
           for (var i = 0; i < options.length; i++)
             Expanded(
-              // GestureDetector: memilih item saat ditekan
               child: GestureDetector(
                 onTap: () => onChanged(i),
-                // AnimatedContainer: transisi halus saat warna latar berubah
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   constraints: BoxConstraints(minHeight: itemHeight),
@@ -212,11 +278,8 @@ class SegmentedPill extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: i == selected ? selectedBackground : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
-                    // Bayangan tipis: item terpilih tetap terpisah dari wadah
-                    // walau warnanya dekat (mis. surface di atas fill)
                     boxShadow: i == selected ? AppShadows.chip : null,
                   ),
-                  // FittedBox: perkecil teks sedikit bila tidak muat (mis. "Large +Rp4.000")
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
@@ -239,32 +302,26 @@ class SegmentedPill extends StatelessWidget {
 }
 
 // AppBottomBar: satu sheet putih berisi strip keranjang + navbar 4 tab
-// Strip keranjang hanya tampil bila keranjang berisi
 class AppBottomBar extends StatelessWidget {
-  final int index; // Tab aktif
-  final ValueChanged<int> onTap; // Callback saat tab ditekan
+  final int index;
+  final ValueChanged<int> onTap;
   const AppBottomBar({super.key, required this.index, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // context.watch: rebuild saat isi keranjang berubah
     final cart = context.watch<CartProvider>();
-    // Container: sheet putih radius atas 28 dengan bayangan navSheet
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: AppShadows.navSheet,
       ),
-      // ClipRRect: memotong strip keranjang agar mengikuti radius atas
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Tinggi mengikuti isi
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Kondisi: strip keranjang hanya bila keranjang tidak kosong
             if (cart.totalItems > 0) _CartStrip(cart: cart),
-            // NavigationBar: navbar M3 (gaya diatur di navigationBarTheme)
             NavigationBar(
               selectedIndex: index,
               onDestinationSelected: onTap,
@@ -281,8 +338,7 @@ class AppBottomBar extends StatelessWidget {
                 ),
                 NavigationDestination(
                   icon: _ikonNav(Icons.receipt_long_outlined),
-                  selectedIcon:
-                      _ikonNav(Icons.receipt_long_rounded, aktif: true),
+                  selectedIcon: _ikonNav(Icons.receipt_long_rounded, aktif: true),
                   label: 'Pesanan',
                 ),
                 NavigationDestination(
@@ -299,9 +355,6 @@ class AppBottomBar extends StatelessWidget {
   }
 }
 
-// _ikonNav: ikon navbar 24 di dalam kotak 40×40.
-// Aktif = lingkaran 40 primary + ikon putih (pengganti indikator M3 yang
-// tingginya terkunci 32). Tidak aktif tetap 40×40 agar label tidak melompat.
 Widget _ikonNav(IconData ikon, {bool aktif = false}) {
   return Container(
     width: 40,
@@ -313,15 +366,12 @@ Widget _ikonNav(IconData ikon, {bool aktif = false}) {
   );
 }
 
-// _CartStrip: strip keranjang tinggi 56 di atas navbar
-// Ketuk → halaman Keranjang (keranjang BUKAN tab navbar)
 class _CartStrip extends StatelessWidget {
-  final CartProvider cart; // Data keranjang
+  final CartProvider cart;
   const _CartStrip({required this.cart});
 
   @override
   Widget build(BuildContext context) {
-    // Material + InkWell: efek ripple saat strip ditekan
     return Material(
       color: AppColors.cartStrip,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -335,7 +385,6 @@ class _CartStrip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
-              // Container: kotak ikon troli 36×36 putih radius 12
               Container(
                 width: 36,
                 height: 36,
@@ -347,7 +396,6 @@ class _CartStrip extends StatelessWidget {
                     size: 20, color: AppColors.primary),
               ),
               const SizedBox(width: 12),
-              // Text.rich: "3 item · Rp76.560" (total tebal ink)
               Expanded(
                 child: Text.rich(
                   TextSpan(
@@ -359,7 +407,6 @@ class _CartStrip extends StatelessWidget {
                   ),
                 ),
               ),
-              // Text: link "Lihat keranjang ›"
               Text('Lihat keranjang',
                   style: ts(13, 700, color: AppColors.primary)),
               const Icon(Icons.chevron_right_rounded,
