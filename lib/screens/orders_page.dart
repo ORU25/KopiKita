@@ -8,59 +8,89 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
 // OrdersPage: layar Pesanan (DESIGN.md 3.6 Aktif & 3.7 Riwayat)
-class OrdersPage extends StatelessWidget {
+class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
 
-  // Counter yang naik saat ada permintaan "buka tab Riwayat".
-  static final ValueNotifier<int> _mintaRiwayat = ValueNotifier<int>(0);
+  // Permintaan pindah sub-tab. `gen` naik tiap request agar notifier
+  // tetap memicu listener walau sub-tab tujuan sama.
+  static final ValueNotifier<(int gen, int tab)> _minta =
+      ValueNotifier<(int, int)>((0, 0));
 
-  // mintaRiwayat: dipanggil dari luar (mis. tombol "Pesan Lagi" di Home)
-  // agar OrdersPage landing di tab Riwayat, bukan tab Aktif default.
-  static void mintaRiwayat() => _mintaRiwayat.value++;
+  /// Pindah ke sub-tab Aktif (dipanggil dari bottom nav "Pesanan").
+  static void mintaAktif() => _minta.value = (_minta.value.$1 + 1, 0);
+
+  /// Pindah ke sub-tab Riwayat (dipanggil dari "Pesan Lagi" di Beranda).
+  static void mintaRiwayat() => _minta.value = (_minta.value.$1 + 1, 1);
+
+  @override
+  State<OrdersPage> createState() => _OrdersPageState();
+}
+
+class _OrdersPageState extends State<OrdersPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab;
+  int _genTerakhir = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final (gen, tab) = OrdersPage._minta.value;
+    _genTerakhir = gen;
+    _tab = TabController(length: 2, vsync: this, initialIndex: tab);
+    OrdersPage._minta.addListener(_onMinta);
+  }
+
+  void _onMinta() {
+    final (gen, tab) = OrdersPage._minta.value;
+    if (gen <= _genTerakhir) return;
+    _genTerakhir = gen;
+    _tab.animateTo(tab);
+  }
+
+  @override
+  void dispose() {
+    OrdersPage._minta.removeListener(_onMinta);
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: _mintaRiwayat,
-      builder: (context, gen, _) {
-        return DefaultTabController(
-          key: ValueKey(gen),
-          length: 2,
-          initialIndex: gen == 0 ? 0 : 1, // gen>0 → langsung tab Riwayat
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  child: Text('Pesanan Saya', style: ts(24, 800, ls: -0.4)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TabBar(
-                    indicatorColor: AppColors.primary,
-                    indicatorWeight: 2,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: AppColors.divider,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor: AppColors.muted,
-                    labelStyle: ts(14, 700),
-                    unselectedLabelStyle: ts(14, 600),
-                    tabs: const [
-                      Tab(height: 44, text: 'Aktif'),
-                      Tab(height: 44, text: 'Riwayat'),
-                    ],
-                  ),
-                ),
-                const Expanded(
-                  child: TabBarView(children: [_TabAktif(), _TabRiwayat()]),
-                ),
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+            child: Text('Pesanan Saya', style: ts(24, 800, ls: -0.4)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: TabBar(
+              controller: _tab,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 2,
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: AppColors.divider,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.muted,
+              labelStyle: ts(14, 700),
+              unselectedLabelStyle: ts(14, 600),
+              tabs: const [
+                Tab(height: 44, text: 'Aktif'),
+                Tab(height: 44, text: 'Riwayat'),
               ],
             ),
           ),
-        );
-      },
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: const [_TabAktif(), _TabRiwayat()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

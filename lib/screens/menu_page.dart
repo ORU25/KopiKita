@@ -391,6 +391,7 @@ class _MenuPageState extends State<MenuPage> {
               // Container: kartu putih radius 20, padding 10, bayangan card
               // Opacity: menu habis tampil 0.6
               return Opacity(
+                key: ValueKey(p.id),
                 opacity: p.habis ? 0.6 : 1,
                 child: Container(
                   width: 276,
@@ -495,7 +496,7 @@ class _MenuPageState extends State<MenuPage> {
           ),
         // map: setiap produk jadi satu baris datar
         for (final p in daftar)
-          BarisMenu(produk: p, favorit: favorit.contains(p.id)),
+          BarisMenu(key: ValueKey(p.id), produk: p, favorit: favorit.contains(p.id)),
         const SizedBox(height: 12),
       ],
     );

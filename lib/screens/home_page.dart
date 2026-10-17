@@ -303,6 +303,7 @@ class _HomePageState extends State<HomePage> {
   // _barisLaris: baris datar ringkas (thumbnail 64 · nama/deskripsi/harga · +)
   Widget _barisLaris(Produk p, {bool terakhir = false}) {
     return Opacity(
+      key: ValueKey(p.id),
       opacity: p.habis ? 0.6 : 1,
       child: InkWell(
         onTap: p.habis ? null : () => bukaKustomisasi(context, p),

@@ -179,6 +179,7 @@ class ProductThumb extends StatelessWidget {
             height: size,
             color: AppColors.tint, // Latar cadangan
             child: CachedNetworkImage(
+              key: ValueKey(foto),
               imageUrl: foto,
               width: size,
               height: size,
@@ -190,6 +191,7 @@ class ProductThumb extends StatelessWidget {
               // imageBuilder: Menggambar gambar dengan DecorationImage.
               // Sangat stabil di Flutter Web (tidak jadi hitam).
               imageBuilder: (context, imageProvider) => Container(
+                key: ValueKey(foto),
                 width: size,
                 height: size,
                 decoration: BoxDecoration(

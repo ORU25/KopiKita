@@ -6,16 +6,37 @@ import '../models/cart_item.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'orders_page.dart'; // <--- TAMBAHAN: Import untuk memanggil mintaAktif()
 
 // CartPage: layar Keranjang (DESIGN.md 3.5), tanpa navbar
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
-  // _pesan: buat pesanan, kembali ke halaman utama, buka tab Pesanan
-  void _pesan(BuildContext context, CartProvider cart) {
-    cart.checkout(); // Status awal: menunggu_bayar
-    NavigationPage.tab.value = NavigationPage.tabPesanan;
-    Navigator.pop(context);
+  // _pesan: buat pesanan, kembali ke halaman utama, buka tab Pesanan Aktif
+  Future<void> _pesan(BuildContext context, CartProvider cart) async {
+    try {
+      // Jika cart.checkout() di provider kamu sudah diubah menjadi async (Firestore),
+      // maka await ini akan menunggu proses simpan selesai.
+      await cart.checkout(); 
+      
+      if (!context.mounted) return;
+
+      // PERBAIKAN: Paksa tab Pesanan membuka sub-tab "Aktif", bukan Riwayat
+      OrdersPage.mintaAktif();
+      
+      // Pindah ke halaman tab Pesanan
+      NavigationPage.tab.value = NavigationPage.tabPesanan;
+      
+      // Tutup halaman keranjang
+      Navigator.pop(context);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Gagal membuat pesanan: $e')),
+        );
+    }
   }
 
   @override
@@ -150,6 +171,7 @@ class CartPage extends StatelessWidget {
   // _barisItem: thumbnail 56 · nama · opsi · harga · stepper
   Widget _barisItem(CartProvider cart, CartItem item) {
     return Container(
+      key: ValueKey(item.kunci), // TAMBAHAN: Key unik agar gambar tidak tertukar
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.dividerSoft)),
@@ -157,7 +179,13 @@ class CartPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProductThumb(size: 56, makanan: item.makanan, nama: item.nama),
+          // TAMBAHAN: url: item.gambarUrl agar gambar di keranjang sesuai
+          ProductThumb(
+            size: 56,
+            makanan: item.makanan,
+            nama: item.nama,
+            url: item.gambarUrl,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -165,11 +193,13 @@ class CartPage extends StatelessWidget {
               children: [
                 Text(item.nama, style: ts(14, 700)),
                 if (item.labelOpsi.isNotEmpty)
-                  Text(item.labelOpsi, style: ts(12, 500, color: AppColors.muted)),
+                  Text(item.labelOpsi,
+                      style: ts(12, 500, color: AppColors.muted)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Expanded(child: Text(rp(item.totalHarga), style: ts(14, 700))),
+                    Expanded(
+                        child: Text(rp(item.totalHarga), style: ts(14, 700))),
                     // Stepper bulat − n +
                     _tombolStepper(Icons.remove_rounded, 'Kurangi',
                         () => cart.changeQuantity(item.kunci, item.jumlah - 1)),
@@ -219,7 +249,9 @@ class CartPage extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              cart.voucher == null ? 'Belum ada voucher' : '${cart.voucher} diterapkan',
+              cart.voucher == null
+                  ? 'Belum ada voucher'
+                  : '${cart.voucher} diterapkan',
               style: ts(14, 600),
             ),
           ),
@@ -238,7 +270,8 @@ class CartPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: ts(13, 500, color: AppColors.muted))),
+          Expanded(
+              child: Text(label, style: ts(13, 500, color: AppColors.muted))),
           Text(nilai, style: ts(13, 600)),
         ],
       ),
