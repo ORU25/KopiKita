@@ -156,6 +156,7 @@ Urutan alur: **Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keran
 - Bawah: "Sudah punya akun? **Masuk**" → kembali ke Login (pop).
 - **Implementasi**: `AuthService.daftar(nama, email, password)` (`lib/services/auth_service.dart`): `createUserWithEmailAndPassword` → `updateDisplayName(nama)` → tulis dokumen `users/{uid}` (`nama`, `email`, `role: "pelanggan"`, `favorit: []`, `voucher: ["KOPIKITA20", "HEMAT5RB"]`, `notifikasi: true`, `createdAt`). Jika Firestore gagal, akun Auth dihapus (rollback) agar tidak ada user tanpa dokumen.
 - **Transisi ke Beranda** diurus `AuthGate` (lihat 3.1b), bukan `Navigator.push` manual. Setelah daftar sukses, `authStateChanges()` berubah dan AuthGate otomatis menampilkan Beranda.
+- Setelah daftar sukses dan AuthGate menampilkan `NavigationPage`, layar `RegisterPage` **di-pop** (`Navigator.of(context).popUntil((r) => r.isFirst)`) agar Beranda (root baru) langsung terlihat, bukan tetap menampilkan form Daftar.
 
 ```dart
 // Pola pakai AuthScaffold (lib/screens/register_page.dart)
@@ -256,10 +257,17 @@ Tanpa navbar. Padding 24 20, gap 16.
 - Judul "Akun" 24/800.
 - Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted · chevron.
 - **Voucher saya**: judul 16/800, daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`.
-- Baris pengaturan datar (52 tinggi, 14/600, chevron muted, garis bawah `divider`):
-  - **Edit profil** — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + `viewInsets.bottom` agar naik di atas keyboard): judul "Edit profil" 18/800 ls −0.3 → label "Nama" 12/700 `textSecondary` → field nama (52, radius 14, latar `fill`, autofocus, `textCapitalization: words`) → tombol utama **Simpan** (52, radius 16). Simpan → tulis `users/{uid}.nama` lewat `UserRepo.update`; SnackBar "Profil diperbarui." Validasi: nama < 2 karakter ditolak.
-  - **Notifikasi** — membuka halaman `NotificationPage`: `AppBar` latar `bg`, judul "Notifikasi" 18/800 ls −0.3, `titleSpacing: 0`. Satu `SwitchListTile` untuk `users/{uid}.notifikasi` (thumb aktif `primary`), judul "Notifikasi pesanan" 14/700, subtitle "Dapatkan pemberitahuan saat status pesananmu berubah." 12 muted. Perubahan langsung ditulis ke Firestore (optimistic UI + rollback bila gagal).
-  - **Keluar** — `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
+- **Avatar profil** di card: bulat **48**, `ClipOval`. Bila `users/{uid}.fotoUrl` terisi → `Image.network` (`BoxFit.cover`); bila kosong atau gagal dimuat → latar `tint` dengan inisial nama 16/800 `primary` (`errorBuilder` menangani kasus jaringan mati). Saat pertama kali belum ada foto, tampilan persis seperti sebelumnya (inisial).
+- **Baris pengaturan datar** (52 tinggi, 14/600, chevron muted, garis bawah `divider`), urutan dari atas:
+  1. **Edit profil** — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + `viewInsets.bottom` agar naik di atas keyboard). Isi sheet, dari atas:
+     - Judul "Edit profil" 18/800 ls −0.3.
+     - **Avatar besar 84** (`ClipOval`) di tengah, menampilkan urutan prioritas: (a) `Image.memory` bytes yang baru dipilih (`preview` lokal), (b) `Image.network(users/{uid}.fotoUrl)`, (c) latar `tint` + inisial 24/800 `primary`. Di pojok kanan-bawah avatar, **tombol kamera** bulat 32 (latar `primary`, ikon `photo_camera_outlined` 18 putih, `clipBehavior: Clip.none`, posisi `right: -4, bottom: -4`); target sentuh 44×44 (padding implisit). Ketuk → `image_picker` (`maxWidth: 512`, `imageQuality: 85`); batal memilih → tidak ada perubahan state.
+     - Label "Nama" 12/700 `textSecondary`, field nama (52, radius 14, latar `fill`, autofocus, `textCapitalization: words`). Validasi: nama < 2 karakter ditolak (SnackBar "Nama terlalu pendek.").
+     - Tombol utama **Simpan** (52, radius 16). Bila `_fotoBaru` ada → unggah ke Cloudinary (`CloudinaryAccService.uploadBytes`, folder `foto-profil`, unsigned preset `kopikita_menu`) → dapat `secure_url` → tulis `users/{uid}.fotoUrl`. Selalu tulis `users/{uid}.nama`. SnackBar "Profil diperbarui." setelah sheet ditutup. Gagal unggah/tulis → SnackBar `Gagal menyimpan: {e}`, sheet tetap terbuka.
+  2. **Ubah kata sandi** — `AlertDialog` (radius 20, latar `surface`): judul "Ubah kata sandi" 16/800 ls −0.3 → penjelasan "Kami akan mengirim tautan ubah kata sandi ke {email}. Buka tautan dari inbox untuk mengatur sandi baru." 13 muted line-height 1.4 → tombol **Batal** 13/700 `muted` dan **Kirim** 13/700 `primary`. Kirim → `FirebaseAuth.sendPasswordResetEmail(email)`. Sukses → SnackBar "Tautan ubah sandi dikirim ke {email}"; gagal → SnackBar pesan Bahasa Indonesia dari `AuthService.pesanError`. Email diambil dari `FirebaseAuth.instance.currentUser?.email`; bila kosong → SnackBar "Email akun tidak ditemukan."
+  3. **Notifikasi** — membuka halaman `NotificationPage`: `AppBar` latar `bg`, judul "Notifikasi" 18/800 ls −0.3, `titleSpacing: 0`. Satu `SwitchListTile` untuk `users/{uid}.notifikasi` (thumb aktif `primary`), judul "Notifikasi pesanan" 14/700, subtitle "Dapatkan pemberitahuan saat status pesananmu berubah." 12 muted. Perubahan langsung ditulis ke Firestore (optimistic UI + rollback bila gagal).
+  4. **Keluar** — `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
+- **Field Firestore baru:** `users/{uid}.fotoUrl: string` (opsional, kosong/default `""`). URL `https://res.cloudinary.com/...`. Karena ini penambahan skema, **wajib disetujui P1** dan dicatat di kontrak `PEMBAGIAN_TUGAS.md` sebelum merge.
 - Bawah: strip keranjang + navbar (tab Akun aktif).
 
 ---

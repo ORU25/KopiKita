@@ -42,8 +42,11 @@ class _RegisterPageState extends State<RegisterPage> {
         email: _email.text,
         password: _sandi.text,
       );
-      // Selesai. AuthGate (main.dart) yang memindahkan ke Beranda.
-      // UserProvider otomatis memuat profil via authStateChanges().
+      // AuthGate sudah mengganti root ke NavigationPage karena
+      // authStateChanges() mengirim User baru. Kita hanya perlu menyingkirkan
+      // RegisterPage dari tumpukan agar NavigationPage terlihat.
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
