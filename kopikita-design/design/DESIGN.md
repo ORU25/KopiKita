@@ -185,48 +185,81 @@ AuthScaffold(
   - Getter aman null-safe: `namaDari`, `emailDari`, `roleDari`, `voucherDari`, `notifikasiDari`.
 
 ### 3.2 Beranda (`screens/Beranda.png`, `source/Main.dc.html`)
-- **Banner** tinggi 280, radius bawah 24, gambar `banner-beranda.jpg` cover, dengan gradasi gelap `ink` 0% (35% tinggi) → 85% (bawah) agar sapaan terbaca. Tanpa logo. Tombol notifikasi bulat 44 di kanan atas (top 24, right 20; latar `rgba(251,239,224,0.14)`, ikon `cream`).
-- **Sapaan di atas card** (menimpa banner, top 152.4, kiri/kanan 32 = tepi card 16 + padding 16 agar sejajar isi card, bukan sudut lengkungnya): "Hai, Rina" 32/800 putih ls −0.5 line-height 1.2, jarak 4 (rapat), subjudul "Mau ngopi apa hari ini?" 16/600 putih line-height 1.2, lalu jarak 12 ke card. Tanpa indikator voucher.
-- **Card melayang** (top 226, inset 16, padding 16, gap 14):
-  1. Dua aksi besar sama lebar: **Ambil Sendiri** (gambar tas) dan **Makan di Tempat** (gambar cangkir). Gambar tinggi 48 dalam area 76×56, tanpa latar; label 14/700 di bawah (gap 8). Ketuk → Menu dengan metode terpilih.
+
+- **Banner** tinggi 280, radius bawah 24 (`ClipRRect`), latar `ink` bila gambar belum termuat, `Image.asset('assets/images/banner-beranda.jpg')` `BoxFit.cover` dengan `alignment: Alignment(0, 0)`. Gradasi gelap `ink` via `foregroundDecoration` dari alpha 0 (stop 0.35) → alpha 0.85 (bawah). Tanpa logo.
+- **Tombol notifikasi** bulat 44 di kanan atas (`Positioned(top: atasAman + 16, right: 20)`; `atasAman = MediaQuery.padding.top`); latar `cream` alpha 0.14, ikon `notifications_none_rounded` warna `cream`, `shadow: false`; ketuk → push `NotificationPage`.
+- **Sapaan di atas card** (`Positioned(top: 152.4, left: 32, right: 32)` — tepi card 16 + padding 16 agar sejajar isi card, bukan sudut lengkungnya):
+  - `StreamBuilder` ke `users/{uid}`. Teks `Hai, {nama depan}` (kata pertama) 32/800 putih ls −0.5 line-height 1.2, `maxLines: 1`, ellipsis; bila nama kosong → `Hai!`.
+  - Jarak 4, subjudul `Mau ngopi apa hari ini?` 16/600 putih line-height 1.2.
+- **Card melayang** (`Padding.fromLTRB(16, 226, 16, 0)`; putih `surface`, radius 24, padding 16, bayangan `float`, gap 14):
+  1. Dua aksi besar sama lebar (`Expanded`): **Ambil Sendiri** (`ikon-ambil-sendiri.png`) dan **Makan di Tempat** (`ikon-makan-di-tempat.png`). Tiap `_AksiBesar`: `InkWell` radius 16, padding vertikal 4, `SizedBox(76×56)` dengan gambar tinggi 48, `SizedBox(8)`, label 14/700. Ketuk → `cart.setMakanDiTempat(bool)` lalu `NavigationPage.tab = tabMenu`.
   2. Garis 1px `dividerSoft`.
-  3. Empat aksi cepat (ikon garis 24 stroke 1.4 `primary`, label 12/500 `textSecondary`, lebar 72): **Promo**, **Voucher**, **Favorit**, **Pesan Lagi**.
-- **Promo untukmu** (top 495): judul 16/800 + "Lihat semua" 13/700 `promoLabel`.
-- **Slider promo** (top 525): kartu 290×128, radius 24, padding 14 20, jarak 12, snap ke kiri dengan padding 20 (Flutter: `PageView` `viewportFraction ≈ 0.78` + `padEnds: false`, atau `ListView` + `PageScrollPhysics`). Tiap kartu = **gambar banner** (`Image.asset`, `BoxFit.cover`, radius 24; teks promo sudah ada di gambar, `semanticLabel` berisi isi promo). Rasio gambar ≈ 2,27:1 (sumber 1889×832 di `kopikita-design/assets/bannerPromo1–3.png`, disalin ke `assets/images/banner-promo-1..3.png`).
-  - Kartu 1: `banner-promo-1.png` — Pelanggan baru · Diskon 20% pesanan pertama · KOPIKITA20.
-  - Kartu 2: `banner-promo-2.png` — Promo mingguan · Beli 2 minum gratis 1 · KITAB2G1.
-  - Kartu 3: `banner-promo-3.png` — Paket pagi · Kopi + croissant mulai Rp35.000.
-- **Indikator dot** (top 659): aktif 20×6 `primary`, lainnya 6×6 `pending`, gap 6. Dot bisa ditekan → slider beranimasi ke kartu itu (300 ms, easeOut). Area tap: baris tinggi 44, dot terdekat dalam radius 22 dari tengahnya (target 44×44 tanpa mengubah jarak visual).
-- **Paling laris** (di bawah dot, jarak 14): judul 16/800 + link "Lihat menu" 13/700 `promoLabel` (→ tab Menu). Lalu 4 **baris datar** (data `rekomendasi`; padding 12 0 di dalam inset 20, garis bawah `dividerList`, baris terakhir tanpa garis, gap 14): thumbnail 64 radius 10 · nama 14/700 · deskripsi 12 muted (1 baris, ellipsis) · harga 14/800 `primary` · tombol + 36 (hit 44). Ketuk baris / + → sheet Kustomisasi.
-- Bawah: strip keranjang + navbar (tab Beranda aktif).
+  3. **Empat aksi cepat** (`spaceAround`, tiap `_AksiCepat`: lebar 72, padding vertikal 6, ikon garis 24 `primary`, gap 8, label 12/500 `textSecondary` line-height 1.15 maks 2 baris):
+     - **Voucher** (`confirmation_number_outlined`) → tab **Akun** (daftar voucher),
+     - **Favorit** (`favorite_border_rounded`) → push `FavoritePage`,
+     - **Menu** (`restaurant_menu_rounded`) → tab **Menu**,
+     - **Pesan Lagi** (`receipt_long_rounded`) → `OrdersPage.mintaRiwayat()` lalu tab **Pesanan** (langsung terbuka di sub-tab Riwayat).
+- `SizedBox(28)` · judul seksi **Promo untukmu** 16/800 + link **Lihat semua** 13/700 `promoLabel` (→ tab **Akun**/voucher), padding horizontal 20. `SizedBox(14)`.
+- **Slider promo**: `Padding(left: 20)` + `SizedBox(height: 128)` + `PageView(controller: PageController(viewportFraction: 0.82), padEnds: false, clipBehavior: Clip.none)`. Tiap `_KartuPromo`: `Padding(right: 12)` + `ClipRRect(radius 24)` + `Image.asset` cover penuh (`width/height: double.infinity`) dengan `semanticLabel` berisi isi promo. Tiga gambar: `banner-promo-1..3.png` (teks promo sudah ada di gambar).
+- **Indikator dot**: `SizedBox(height: 44)` + `LayoutBuilder` + `GestureDetector(behavior: HitTestBehavior.opaque)`. Tap → `_tapDot` mencari dot terdekat dari tengah baris (lebar tiap dot = lebar dot + margin 3×2); bila jarak < 22 → `animateToPage` 300 ms `easeOut`. Tiap dot `AnimatedContainer` 200 ms, margin horizontal 3, aktif 20×6 `primary`, lainnya 6×6 `pending`, radius 3.
+- `SizedBox(14)` · judul **Paling laris** 16/800 + link **Lihat menu** 13/700 `promoLabel` (→ tab Menu). `SizedBox(4)`.
+- **Daftar Paling laris** (`StreamBuilder<List<Produk>>` realtime):
+  - Loading/error/empty lewat `keadaanStream` → `EmptyView(coffee_outlined, "Belum ada menu terlaris", "Menu pilihan kedai akan tampil di sini.")`.
+  - Ambil produk ber-flag `rekomendasi`, `take(4)` (urutan katalog), render `_barisLaris`.
+  - **Baris datar** (`_barisLaris`): `Opacity` 0.6 bila `habis`; seluruh baris `InkWell` → `bukaKustomisasi` (nonaktif bila habis). Padding horizontal 20, vertikal 12; garis bawah `dividerList` kecuali baris terakhir. Isi `Row`:
+    - `Stack` `ProductThumb` 64 (radius 10) + `HabisBadge` di `Positioned(left: 4, top: 4)` bila habis;
+    - `SizedBox(14)`;
+    - `Expanded` kolom: nama 14/700 · deskripsi 12/500 `muted` 1 baris ellipsis · `SizedBox(4)` · harga 14/800 `primary`;
+    - `AddButton` (hit 44, `disabled` saat habis) → `bukaKustomisasi`.
+- Padding bawah `SingleChildScrollView` **170** agar item terakhir tidak tertutup sheet navbar.
 
 ### 3.3 Menu (`screens/Menu.png`, `screens/Menu-header-collapsed.png`, `source/Menu.dc.html`)
-Kolom: header (tidak ikut scroll) + area scroll + sheet navbar di bawah.
 
-- **Header collapsing** (padding 20 20 10, latar `bg`):
-  - *Expanded* (scroll di atas): tombol kembali bulat 44 putih · "KopiKita" 20/800 · tombol info bulat 44. Di bawahnya segmented **Ambil Sendiri | Makan di Tempat** (terpilih latar `primary`).
-  - *Collapsed* (setelah scroll > 60, kembali saat < 8 — beri histeresis agar tidak berkedip): tombol kembali · dua baris "{Metode} · KopiKita" 14/800 + "Outlet Utama · 350 m dari kamu" 12/500 muted · pill "Ubah" 32 (putih, 12/800 `primary`).
-  - Flutter: `CustomScrollView` + `SliverPersistentHeader`/`SliverAppBar` (pinned) yang berganti konten berdasarkan offset, atau `NestedScrollView`.
-- **Bar filter sticky** (pinned di atas area scroll, latar `bg`, padding 6 20 10): chip kategori geser horizontal (tinggi 40, radius penuh, 13/700; terpilih latar `primary` teks putih, lainnya putih teks ink) — **Rekomendasi, Kopi, Non-Kopi, Makanan** — + tombol cari bulat 44 di kanan.
-- **Rekomendasi**: judul 16/800, lalu daftar horizontal kartu **ringkas memanjang** 276 lebar (putih, radius 20, padding 10, bayangan `card`, snap): thumbnail 64 radius 10 · nama 14/700 (1 baris, ellipsis) · deskripsi 12 muted · harga 13/800 `primary` · tombol + 36. Kartu berikutnya terpotong di tepi agar terlihat bisa digeser.
-- **Daftar menu vertikal** dikelompokkan per kategori: header kategori "Kopi" 16/800 + "3 menu" 12/600 muted. Tiap item **baris datar** (padding 14 0, garis bawah `dividerList`, gap 14):
-  - Thumbnail 84×84 radius 10.
-  - Nama 14/700, deskripsi 12 muted (line-height 1.35), harga 14/800 `primary` di bawah.
-  - Kolom kanan: tombol hati 36 (tidak aktif garis `muted`; aktif terisi `#9A5A1C`) di atas, tombol + 36 di bawah.
-  - Menu habis: opacity 0.6, badge "Habis" (22 tinggi, latar ink, teks putih 12/700) di pojok kiri atas thumbnail, tombol + `disabled`.
-- Ketuk + / item → Kustomisasi. Padding bawah area scroll ≥ tinggi sheet navbar (~156) agar item terakhir tidak tertutup.
+Struktur: `SafeArea(bottom: false)` → `Column` (header tidak ikut scroll + `Expanded` berisi area scroll). Header dibungkus `AnimatedSize` 200 ms + `AnimatedSwitcher` 200 ms (transisi halus expanded ↔ collapsed).
 
-### 3.4 Kustomisasi (`screens/Kustomisasi.png`, `source/Kustomisasi.dc.html`)
-Modal bottom sheet yang meluncur dari bawah di atas layar Menu (Flutter: `bukaKustomisasi()` → `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)` + `DraggableScrollableSheet(expand: false, initial/max 0.9, min 0.5)`; `ListView` memakai `scrollController` sheet). Tanpa navbar, tanpa hero, tanpa tombol X.
-- **Batal**: tarik sheet ke bawah (dari handle, atau dari isi saat scroll di posisi atas) atau tap area gelap di luar sheet. Tidak ada item yang masuk keranjang.
-- Sheet latar `bg` (putih, seperti halaman lain), radius atas 28, tinggi awal 90% layar, handle 40×4 `pending`. Konten padding 12 20, gap 14; bawah sheet diberi padding `viewInsets` agar footer naik di atas keyboard:
-  - Nama 22/700 + deskripsi 13 muted · harga dasar 16/800 `primary` kanan. Blok ini diberi inset ekstra 4 (total 24 dari tepi sheet) karena teks polos di tepi 20 terlihat lebih mepet dibanding tombol/chip berlatar.
-  - **Ukuran** dan **Suhu** masing-masing satu baris penuh (bertumpuk, bukan berdampingan), memakai chip pilihan berikon (ikon di kiri teks, gap 6, warna mengikuti teks): Regular (cangkir 16) / Large +Rp4.000 (cangkir 20); Panas (api 18) / Es (kristal es 18). Label grup 12/600 muted.
-  - **Level gula**: Tanpa · Sedikit · Normal · Manis (chip pilihan).
-  - **Level es**: Sedikit · Normal · Banyak (saran implementasi: sembunyikan bila Suhu = Panas).
-  - **Add-on**: label "Add-on" + baris checkbox **kecil tanpa garis pemisah**: tinggi 44 (target sentuh), inset 4 kiri-kanan (sejajar nama menu, tidak melebihi elemen lain), ripple radius 12; checkbox 18 radius 5 (aktif latar `primary` + centang putih 14; kosong border 1.5 `disabled`), gap 10, nama 13/600, harga "+Rp5.000" 12/700 muted. Contoh: Extra shot, Oat milk, Sirup karamel.
-  - Field catatan: 44 tinggi, radius 14, latar `fill`, ikon pensil, placeholder "Catatan untuk barista (opsional)".
-- Footer tetap (border atas `divider`, padding 12 20 20): stepper jumlah (52 tinggi, radius 16, latar `fill`, tombol −/+ 40) + tombol utama "Tambah · Rp31.000" (harga = total pilihan × jumlah). Tambah → item masuk keranjang, sheet tertutup.
+- **Header collapsing** (padding `fromLTRB(20, 20, 20, 10)`, latar `bg`):
+  - *Expanded* (`key: 'lengkap'`): `Row` — tombol kembali bulat 44 (`chevron_left_rounded`, → tab **Beranda**, bukan pop) · `SizedBox(12)` · `Expanded "KopiKita"` 20/800 ls −0.3 · tombol info bulat 44 (`info_outline_rounded`, warna `primary`) → `AlertDialog` **Info Kedai**. `SizedBox(12)`, lalu `SegmentedPill` **Ambil Sendiri | Makan di Tempat** (bg `surface`, terpilih `primary`/putih, fg `ink`, bayangan `chip`) → `cart.setMakanDiTempat`.
+  - *Collapsed* (`key: 'ringkas'`): `Row` tombol kembali · `SizedBox(12)` · `Expanded` dua baris `{Metode} · KopiKita` 14/800 (1 baris ellipsis) + `Outlet Utama · 350 m dari kamu` 12/500 `muted` (1 baris ellipsis) · pill **Ubah** (`Material surface`, radius 16, tinggi **44** — tampilan pill 32, hit area 44; padding horizontal 12; teks 12/800 `primary`) → toggle `cart.setMakanDiTempat`.
+  - **Histeresis**: collapse saat offset > 60, expand saat < 8 (abaikan `ScrollNotification` horizontal).
+- **AlertDialog Info Kedai** (radius 24, latar `surface`; `titlePadding fromLTRB(24, 22, 24, 0)`, `contentPadding fromLTRB(24, 12, 24, 8)`, `actionsPadding fromLTRB(16, 0, 16, 12)`): judul "Info Kedai" 18/800 · baris `location_on_outlined` 20 `primary` + "Jl. Universitas Mulawarman" 14/600 · `SizedBox(14)` · baris `access_time_rounded` 20 `primary` + "10:00 – 23:00 WITA" 14/600 · aksi **Tutup** 13/800 `primary`.
+- **Bar filter sticky** (`PinnedHeaderSliver`; container `bg`, padding `fromLTRB(20, 6, 20, 10)`): `Expanded SizedBox(height: 44)` + `ListView.separated` horizontal (separator 8) berisi chip kategori — tinggi 40, radius penuh (20), padding horizontal 16, 13/700; terpilih latar `primary` teks putih, tidak terpilih latar **`surface`** teks `ink`. Kategori: **Rekomendasi, Kopi, Non-Kopi, Makanan** (dari `kategoriMenu`). Kanan: `RoundIconButton` cari bulat 44 (`search_rounded`, `primary`) → `_bukaCari(daftar)` (mengirim `awal: data` ke `SearchPage`).
+- Ketuk chip → `setState(_kategoriAktif)` + `Scrollable.ensureVisible` ke `GlobalKey` seksi kategori (300 ms, `alignment: 0`).
+- **Area scroll** (`NotificationListener` + `CustomScrollView`):
+  - `PinnedHeaderSliver(_barFilter)`.
+  - Bila loading/error/kosong → `SliverFillRemaining(hasScrollBody: false)` berisi `keadaanStream` → `EmptyView(coffee_outlined, "Menu belum tersedia", "Kedai belum menambahkan menu. Coba lagi nanti.")`; `onCoba: _muatUlang`.
+  - Bila siap:
+    - `SliverToBoxAdapter(_seksiRekomendasi(produk.rekomendasi))`;
+    - `SliverToBoxAdapter(_seksiKategori(...))` untuk tiap `kategoriMenu.skip(1)`;
+    - `SliverToBoxAdapter(SizedBox(height: 170))` sebagai ruang sheet navbar.
+- **Rekomendasi** (disembunyikan bila kosong): judul "Rekomendasi" 16/800 (padding `fromLTRB(20, 8, 20, 10)`); `SizedBox(height: 104)` + `ListView.separated` horizontal (padding horizontal 20, vertikal 10, separator 12, `clipBehavior: Clip.none` — kartu berikutnya terpotong di tepi). Tiap kartu `Container width: 276`, padding 10, `surface` radius 20, bayangan `card`, `Opacity` 0.6 bila habis. Isi `Row`:
+  - `Stack` `ProductThumb` 64 + `HabisBadge` `Positioned(left: 4, top: 4)` bila habis · `SizedBox(10)`;
+  - `Expanded` kolom (center): nama 14/700 · deskripsi 12/500 `muted` · `SizedBox(2)` · harga 13/800 `primary` (semua 1 baris ellipsis);
+  - `AddButton` (disabled saat habis) → `bukaKustomisasi`.
+  `SizedBox(16)` penutup.
+- **Seksi kategori**: `Column` ber-`GlobalKey` kategori. Header `Row` (baseline, `TextBaseline.alphabetic`): "Kopi" 16/800 + `SizedBox(8)` + "3 menu" 12/600 `muted` (padding `fromLTRB(20, 8, 20, 4)`). Kategori kosong → "Belum ada menu di kategori ini." 13/500 `muted` (padding 20/14). Setiap produk → `BarisMenu(produk, favorit: favorit.contains(p.id))`. `SizedBox(12)` penutup.
+- **Menu habis**: opacity 0.6, badge "Habis" (22 tinggi, latar `ink`, teks putih 12/700) di pojok kiri atas thumbnail, tombol + `disabled`.
+
+### 3.3a Cari (`search_page.dart`)
+
+- `SearchPage(awal: List<Produk>?)` — menerima daftar produk yang sudah dimuat Menu sebagai `initialData` agar hasil tampil instan; tetap mengikuti stream realtime (mis. status Habis). Tidak ada query Firestore per ketikan.
+- `Scaffold(bg)` + `SafeArea`.
+- **Header** (padding `fromLTRB(20, 12, 20, 8)`): tombol kembali bulat 44 (`chevron_left_rounded` → `Navigator.pop`) · `SizedBox(12)` · `Expanded TextField` (`autofocus: true`, `textInputAction: search`, style 14/500, `onChanged` → `_kata = v.trim().toLowerCase()`). Dekorasi: hint "Cari menu", prefix `search_rounded`, suffix tombol hapus 44 (`close_rounded`) hanya bila `_kata` / `_ctrl.text` tidak kosong → `_hapus` (kosongkan ctrl + state).
+- **Hasil** dibungkus `FavoritBuilder` → `StreamBuilder<List<Produk>>` (`initialData: widget.awal`).
+- **Logika tampilan**:
+  - loading/error → `keadaanStream` (`onCoba: _muatUlang`, `kosong: (_) => false`, `tampilanKosong: SizedBox.shrink()`).
+  - `_kata` kosong → `EmptyView(search_rounded, "Cari menu favoritmu", "Ketik nama menu, misalnya \"latte\" atau \"croissant\".")`.
+  - filter **lokal**: `p.nama.toLowerCase().contains(_kata)`.
+  - hasil kosong → `EmptyView(search_off_rounded, "Menu tidak ditemukan", "Coba kata kunci lain atau periksa ejaannya.")`.
+  - ada hasil → `ListView` (`keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag`, padding bawah 24): teks `{n} menu ditemukan` 12/600 `muted` (padding `fromLTRB(20, 8, 20, 4)`), lalu `BarisMenu` per produk (favorit sesuai set dari `FavoritBuilder`).
+
+### 3.3b Favorit (`favorite_page.dart`)
+
+- `Scaffold(bg)` + `AppBar` (latar `bg`, `foregroundColor: ink`, `elevation: 0`, `titleSpacing: 0`, judul **"Favorit"** 18/800 ls −0.3).
+- Body `FavoritBuilder` → `StreamBuilder<List<Produk>>` (`stream` dari `ProductRepository.stream()`, dibuat ulang saat `_muatUlang`):
+  - Tunggu daftar favorit pertama (`!siap && !snap.hasError`) → `LoadingView` (agar tidak sempat terlihat "kosong").
+  - Loading/error/empty lewat `keadaanStream` dengan `kosong` = tidak ada produk yang `favorit.contains(p.id)` → `EmptyView(favorite_border_rounded, "Belum ada favorit", "Ketuk ikon hati pada menu untuk menyimpannya di sini.")`.
+- **Daftar**: urutan mengikuti katalog (`snap.requireData.where(p => favorit.contains(p.id))`), `ListView` padding atas 4 bawah 24, tiap item `BarisMenu(produk, favorit: true)`. Ketuk hati di sini → item langsung hilang dari daftar (stream favorit reaktif).
+
 
 ### 3.5 Keranjang (`screens/Keranjang.png`, `source/Keranjang.dc.html`)
 Tanpa navbar. Padding 24 20, gap 16.
