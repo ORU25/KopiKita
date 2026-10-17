@@ -2,18 +2,15 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/voucher.dart';
 import '../services/acc_cloud.dart';
-import '../models/voucher.dart'; // Ganti import dummy dengan model asli
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
-import 'notification_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
@@ -48,61 +45,24 @@ class AccountPage extends StatelessWidget {
       );
   }
 
-  Future<void> _dialogUbahSandi(BuildContext context) async {
-    final email = FirebaseAuth.instance.currentUser?.email ?? '';
-    if (email.isEmpty) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Email akun tidak ditemukan.')),
-        );
-      return;
-    }
-
-    final kirim = await showDialog<bool>(
+  Future<void> _sheetUbahSandi(BuildContext context) async {
+    final simpan = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text('Ubah kata sandi', style: ts(16, 800, ls: -0.3)),
-        content: Text(
-          'Kami akan mengirim tautan ubah kata sandi ke $email. '
-          'Buka tautan dari inbox untuk mengatur sandi baru.',
-          style: ts(13, 500, color: AppColors.muted, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Batal', style: ts(13, 700, color: AppColors.muted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Kirim', style: ts(13, 700, color: AppColors.primary)),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (ctx) => const _SheetUbahSandi(),
     );
 
-    if (kirim != true) return;
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('Tautan ubah sandi dikirim ke $email')),
-        );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(AuthService.pesanError(e))),
-        );
-    }
+    if (simpan != true) return;
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Kata sandi berhasil diubah.')),
+      );
   }
 
   @override
@@ -134,45 +94,36 @@ class AccountPage extends StatelessWidget {
                   children: [
                     Text('Akun', style: ts(24, 800, ls: -0.4)),
                     const SizedBox(height: 16),
-                    Material(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      child: InkWell(
+                    // Card profil hanya tampilan; edit lewat baris "Edit profil".
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        onTap: () => _sheetEditProfil(context),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              _Avatar(fotoUrl: fotoUrl, inisial: inisial),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(namaTampil, style: ts(16, 800)),
-                                    Text(
-                                      email,
-                                      style: ts(12, 500,
-                                          color: AppColors.muted),
-                                    ),
-                                    if (role != 'pelanggan')
-                                      Text(
-                                        role == 'admin' ? 'Admin' : 'Staf',
-                                        style: ts(12, 700,
-                                            color: AppColors.primary),
-                                      ),
-                                  ],
+                      ),
+                      child: Row(
+                        children: [
+                          _Avatar(fotoUrl: fotoUrl, inisial: inisial),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(namaTampil, style: ts(16, 800)),
+                                Text(
+                                  email,
+                                  style: ts(12, 500, color: AppColors.muted),
                                 ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: AppColors.ink,
-                              ),
-                            ],
+                                if (role != 'pelanggan')
+                                  Text(
+                                    role == 'admin' ? 'Admin' : 'Staf',
+                                    style: ts(12, 700,
+                                        color: AppColors.primary),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -233,22 +184,36 @@ class AccountPage extends StatelessWidget {
 
               const SizedBox(height: 12),
               _barisPengaturan(
+                Icons.notifications_none_rounded,
+                'Notifikasi pesanan',
+                () => _ubahNotifikasi(
+                    context, !UserRepo.notifikasiDari(data)),
+                trailing: Switch(
+                  value: UserRepo.notifikasiDari(data),
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (v) => _ubahNotifikasi(context, v),
+                ),
+              ),
+              _barisPengaturan(
+                Icons.person_outline_rounded,
                 'Edit profil',
                 () => _sheetEditProfil(context),
               ),
               _barisPengaturan(
+                Icons.lock_outline_rounded,
                 'Ubah kata sandi',
-                () => _dialogUbahSandi(context),
+                () => _sheetUbahSandi(context),
               ),
+              // Keluar dipisah jarak 24 + warna danger, tanpa chevron.
+              const SizedBox(height: 24),
               _barisPengaturan(
-                'Notifikasi',
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotificationPage()),
-                ),
+                Icons.logout_rounded,
+                'Keluar',
+                _keluar,
+                warna: AppColors.danger,
+                garisBawah: false,
+                trailing: const SizedBox.shrink(),
               ),
-              _barisPengaturan('Keluar', _keluar),
             ],
           );
         },
@@ -256,20 +221,47 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _barisPengaturan(String label, VoidCallback onTap) {
+  // Tulis langsung; StreamBuilder ikut berubah seketika (cache lokal Firestore).
+  Future<void> _ubahNotifikasi(BuildContext context, bool v) async {
+    try {
+      await UserRepo.update({'notifikasi': v});
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+    }
+  }
+
+  Widget _barisPengaturan(
+    IconData ikon,
+    String label,
+    VoidCallback onTap, {
+    Color warna = AppColors.ink,
+    Widget? trailing,
+    bool garisBawah = true,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Container(
           height: 52,
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppColors.divider)),
+          decoration: BoxDecoration(
+            border: garisBawah
+                ? const Border(bottom: BorderSide(color: AppColors.divider))
+                : null,
           ),
           child: Row(
             children: [
-              Expanded(child: Text(label, style: ts(14, 600))),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              Icon(ikon, size: 22, color: warna),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label, style: ts(14, 600, color: warna)),
+              ),
+              trailing ??
+                  const Icon(Icons.chevron_right_rounded,
+                      color: AppColors.muted),
             ],
           ),
         ),
@@ -396,13 +388,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
         ? '?'
         : _namaCtrl.text.trim().substring(0, 1).toUpperCase();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
-      ),
+    return _NaikKeyboard(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,6 +451,130 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
             style: ts(14, 500),
             decoration: const InputDecoration(hintText: 'Nama lengkap'),
             onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            label: _loading ? 'Menyimpan...' : 'Simpan',
+            onPressed: _loading ? null : _simpan,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// _NaikKeyboard: padding sheet 20 + naik setinggi keyboard.
+// Hanya widget ini yang dibangun ulang tiap frame animasi keyboard (isi sheet
+// tidak), dan AnimatedPadding menghaluskan inset keyboard yang datang patah-patah.
+class _NaikKeyboard extends StatelessWidget {
+  final Widget child;
+  const _NaikKeyboard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Padding(padding: const EdgeInsets.all(20), child: child),
+    );
+  }
+}
+
+// _SheetUbahSandi: field sandi lama + sandi baru + simpan.
+class _SheetUbahSandi extends StatefulWidget {
+  const _SheetUbahSandi();
+
+  @override
+  State<_SheetUbahSandi> createState() => _SheetUbahSandiState();
+}
+
+class _SheetUbahSandiState extends State<_SheetUbahSandi> {
+  final _lamaCtrl = TextEditingController();
+  final _baruCtrl = TextEditingController();
+  final _konfirmasiCtrl = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _lamaCtrl.dispose();
+    _baruCtrl.dispose();
+    _konfirmasiCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _simpan() async {
+    if (_lamaCtrl.text.isEmpty || _baruCtrl.text.isEmpty) return;
+    if (_baruCtrl.text != _konfirmasiCtrl.text) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+            content: Text('Konfirmasi kata sandi baru tidak cocok.')));
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await AuthService.ubahSandi(_lamaCtrl.text, _baruCtrl.text);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final pesan =
+          (e.code == 'wrong-password' || e.code == 'invalid-credential')
+              ? 'Kata sandi lama salah.'
+              : AuthService.pesanError(e);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(pesan)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _NaikKeyboard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Ubah kata sandi', style: ts(18, 800, ls: -0.3)),
+          const SizedBox(height: 16),
+          Text('Kata sandi lama',
+              style: ts(12, 700, color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _lamaCtrl,
+            enabled: !_loading,
+            obscureText: true,
+            textInputAction: TextInputAction.next,
+            style: ts(14, 500),
+          ),
+          const SizedBox(height: 14),
+          Text('Kata sandi baru',
+              style: ts(12, 700, color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _baruCtrl,
+            enabled: !_loading,
+            obscureText: true,
+            textInputAction: TextInputAction.next,
+            style: ts(14, 500),
+            decoration: const InputDecoration(hintText: 'Minimal 6 karakter'),
+          ),
+          const SizedBox(height: 14),
+          Text('Konfirmasi kata sandi baru',
+              style: ts(12, 700, color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _konfirmasiCtrl,
+            enabled: !_loading,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            style: ts(14, 500),
+            decoration:
+                const InputDecoration(hintText: 'Ulangi kata sandi baru'),
+            onSubmitted: (_) => _simpan(),
           ),
           const SizedBox(height: 16),
           PrimaryButton(

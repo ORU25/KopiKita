@@ -38,7 +38,32 @@ class MainApp extends StatelessWidget {
       title: 'KopiKita',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const AuthGate(), // AuthGate: pilih Login / Beranda otomatis
+      // Splash tampil minimal 2 detik, lalu AuthGate pilih Login / Beranda.
+      home: FutureBuilder(
+        future: _splashSelesai,
+        builder: (context, snap) =>
+            snap.connectionState == ConnectionState.done
+                ? const AuthGate()
+                : const SplashScreen(),
+      ),
+    );
+  }
+}
+
+// Dibuat sekali (top-level final = lazy, satu kali) agar rebuild tidak mengulang splash.
+final _splashSelesai = Future<void>.delayed(const Duration(seconds: 2));
+
+// SplashScreen: gambar penuh layar (sudah berisi logo + "Loading...").
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SizedBox.expand(
+        child: Image.asset('assets/splashScreen.png', fit: BoxFit.cover),
+      ),
     );
   }
 }
@@ -54,12 +79,9 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
-        // Saat pertama kali dibuka, snap.connectionState == waiting.
-        // Tampilkan splash sederhana agar tidak berkedip Login dulu.
+        // Status login belum diketahui → tetap tampilkan splash.
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const SplashScreen();
         }
         if (snap.hasData) {
           // Reset tab ke Beranda setiap transisi login (sekali per transisi).

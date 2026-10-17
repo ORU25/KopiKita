@@ -23,6 +23,7 @@ class AppColors {
   static const dividerSoft = Color(0xFFF0E7DC); // Pemisah di dalam card
   static const dividerList = Color(0xFFE9DED2); // Pemisah baris daftar menu
   static const outline = Color(0xFFE6D9CB); // Border tombol stepper, tombol Google
+  static const danger = Color(0xFFB3261E); // Aksi berbahaya: Keluar
   static const pending = Color(0xFFD9CABB); // Titik status belum tercapai, dot slider
 }
 

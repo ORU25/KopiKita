@@ -34,6 +34,7 @@ Acuan UI untuk aplikasi Android pelanggan KopiKita (Flutter). Dokumen ini adalah
 | `dividerSoft` | `#F0E7DC` | Pemisah di dalam card |
 | `dividerList` | `#E9DED2` | Pemisah baris daftar menu |
 | `outline` | `#E6D9CB` | Border tombol bulat stepper, tombol sekunder bergaris, garis stepper belum dilalui |
+| `danger` | `#B3261E` | Aksi berbahaya (baris Keluar di Akun) |
 | `pending` | `#D9CABB` | Titik status belum tercapai, dot slider tidak aktif, handle bottom sheet |
 
 **Catatan "putih":** di bagian 2–3, latar card/sheet/navbar/tombol bulat yang disebut "putih" memakai token `surface` (`#FCF9F5`), bukan `#FFFFFF`. Sheet Kustomisasi berlatar `bg` (`#FFFFFF`), item terpilih `primary` teks putih; input fokus memakai `bg`. Teks/ikon putih di atas `primary` tetap `#FFFFFF`.
@@ -138,7 +139,20 @@ Padding vertikal 14, `border-bottom: 1px` (`dividerList` / `divider`), tanpa car
 
 ## 3. Layar
 
-Urutan alur: **Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keranjang → Pesanan (Aktif) ↔ Riwayat**, plus **Akun**.
+Urutan alur: **Splash → Login (↔ Daftar) → Beranda → Menu → Kustomisasi → Keranjang → Pesanan (Aktif) ↔ Riwayat**, plus **Akun**.
+
+### 3.0 Splash (`assets/splashScreen.png`)
+- Layar pertama saat aplikasi dibuka: `SplashScreen` (`lib/main.dart`) — satu gambar penuh layar `Image.asset('assets/splashScreen.png', fit: BoxFit.cover)` di atas latar `bg`. Logo dan teks "Loading..." sudah ada di dalam gambar, jadi tidak ada widget tambahan.
+- Tampil **minimal 2 detik** (`Future.delayed` top-level `_splashSelesai`, dibuat sekali), lalu `AuthGate` (3.1b). Bila status login Firebase belum siap, AuthGate tetap menampilkan `SplashScreen`.
+
+```dart
+home: FutureBuilder(
+  future: _splashSelesai,
+  builder: (context, snap) => snap.connectionState == ConnectionState.done
+      ? const AuthGate()
+      : const SplashScreen(),
+),
+```
 
 ### 3.1 Login (`screens/Login.png`, `source/Login.dc.html`)
 - Banner atas tinggi 290, latar `ink #2B1810`, radius bawah 24. Teks **rata tengah** (top 64): "KopiKita" 30/800 `cream`, tagline "Pesan kopi favoritmu tanpa antre." 14/500.
@@ -174,7 +188,7 @@ AuthScaffold(
 
 - Widget pembungkus di `lib/main.dart` yang menjadi `home:` dari `MaterialApp`. Menentukan layar awal berdasarkan status login Firebase (`FirebaseAuth.instance.authStateChanges()`).
 - Tiga keadaan:
-  - `ConnectionState.waiting` (pertama kali dibuka) → `Scaffold` dengan `CircularProgressIndicator` di tengah. Splash sederhana agar tidak berkedip Login dulu.
+  - `ConnectionState.waiting` (pertama kali dibuka) → `SplashScreen` (3.0), agar tidak berkedip Login dulu.
   - `snapshot.hasData` (sudah login) → `NavigationPage` (tab Beranda). Setiap transisi dari belum-login ke sudah-login **mereset tab navbar ke Beranda** (`NavigationPage.tab.value = tabBeranda`) lewat `addPostFrameCallback`.
   - Selainnya (belum login) → `LoginPage`.
 - Karena AuthGate memantau `authStateChanges()`, layar Login/Tidak perlu navigasi manual: berhasil login → AuthGate otomatis pindah ke Beranda; `AuthService.keluar()` → AuthGate otomatis kembali ke Login.
@@ -288,18 +302,32 @@ Tanpa navbar. Padding 24 20, gap 16.
 
 ### 3.8 Akun (`screens/Akun.png`, `source/Akun.dc.html`)
 - Judul "Akun" 24/800.
-- Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted · chevron.
+- Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted. **Hanya tampilan** — tidak bisa diketuk dan tanpa chevron (chevron di `screens/Akun.png` diabaikan); edit lewat baris "Edit profil".
 - **Voucher saya**: judul 16/800, daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`.
 - **Avatar profil** di card: bulat **48**, `ClipOval`. Bila `users/{uid}.fotoUrl` terisi → `Image.network` (`BoxFit.cover`); bila kosong atau gagal dimuat → latar `tint` dengan inisial nama 16/800 `primary` (`errorBuilder` menangani kasus jaringan mati). Saat pertama kali belum ada foto, tampilan persis seperti sebelumnya (inisial).
-- **Baris pengaturan datar** (52 tinggi, 14/600, chevron muted, garis bawah `divider`), urutan dari atas:
-  1. **Edit profil** — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + `viewInsets.bottom` agar naik di atas keyboard). Isi sheet, dari atas:
+- **Baris pengaturan datar** (`_barisPengaturan`: 52 tinggi, **ikon kiri 22** + jarak 12, label 14/600, chevron muted di kanan, garis bawah `divider`), urutan dari atas:
+  1. **Notifikasi pesanan** (ikon `notifications_none_rounded`) — **toggle langsung di baris**, bukan halaman tersendiri: `Switch` di kanan (thumb aktif `primary`) menggantikan chevron; ketuk baris = membalik toggle. Nilai dibaca dari `users/{uid}.notifikasi` lewat `UserRepo.stream()` yang sama dengan card profil; ubah → `UserRepo.update({'notifikasi': v})` (cache lokal Firestore membuat switch langsung berubah); gagal → SnackBar `Gagal menyimpan: {e}`. (`NotificationPage` tetap ada, hanya dibuka dari tombol lonceng di Beranda.)
+  2. **Edit profil** (ikon `person_outline_rounded`) — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + naik setinggi keyboard lewat widget `_NaikKeyboard`). **Animasi keyboard harus halus**: `_NaikKeyboard` adalah satu-satunya widget yang membaca `MediaQuery.viewInsetsOf(context)` sehingga hanya dia yang dibangun ulang tiap frame (isi sheet tidak), dan memakai `AnimatedPadding` (120 ms, `easeOut`) untuk menghaluskan inset keyboard yang datang patah-patah. Jangan memakai `autofocus` di sheet — keyboard dan animasi sheet naik bersamaan membuat patah-patah. Isi sheet, dari atas:
+
+```dart
+class _NaikKeyboard extends StatelessWidget {
+  final Widget child;
+  const _NaikKeyboard({required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedPadding(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: Padding(padding: const EdgeInsets.all(20), child: child),
+      );
+}
+```
      - Judul "Edit profil" 18/800 ls −0.3.
      - **Avatar besar 84** (`ClipOval`) di tengah, menampilkan urutan prioritas: (a) `Image.memory` bytes yang baru dipilih (`preview` lokal), (b) `Image.network(users/{uid}.fotoUrl)`, (c) latar `tint` + inisial 24/800 `primary`. Di pojok kanan-bawah avatar, **tombol kamera** bulat 32 (latar `primary`, ikon `photo_camera_outlined` 18 putih, `clipBehavior: Clip.none`, posisi `right: -4, bottom: -4`); target sentuh 44×44 (padding implisit). Ketuk → `image_picker` (`maxWidth: 512`, `imageQuality: 85`); batal memilih → tidak ada perubahan state.
-     - Label "Nama" 12/700 `textSecondary`, field nama (52, radius 14, latar `fill`, autofocus, `textCapitalization: words`). Validasi: nama < 2 karakter ditolak (SnackBar "Nama terlalu pendek.").
+     - Label "Nama" 12/700 `textSecondary`, field nama (52, radius 14, latar `fill`, tanpa autofocus, `textCapitalization: words`). Validasi: nama < 2 karakter ditolak (SnackBar "Nama terlalu pendek.").
      - Tombol utama **Simpan** (52, radius 16). Bila `_fotoBaru` ada → unggah ke Cloudinary (`CloudinaryAccService.uploadBytes`, folder `foto-profil`, unsigned preset `kopikita_menu`) → dapat `secure_url` → tulis `users/{uid}.fotoUrl`. Selalu tulis `users/{uid}.nama`. SnackBar "Profil diperbarui." setelah sheet ditutup. Gagal unggah/tulis → SnackBar `Gagal menyimpan: {e}`, sheet tetap terbuka.
-  2. **Ubah kata sandi** — `AlertDialog` (radius 20, latar `surface`): judul "Ubah kata sandi" 16/800 ls −0.3 → penjelasan "Kami akan mengirim tautan ubah kata sandi ke {email}. Buka tautan dari inbox untuk mengatur sandi baru." 13 muted line-height 1.4 → tombol **Batal** 13/700 `muted` dan **Kirim** 13/700 `primary`. Kirim → `FirebaseAuth.sendPasswordResetEmail(email)`. Sukses → SnackBar "Tautan ubah sandi dikirim ke {email}"; gagal → SnackBar pesan Bahasa Indonesia dari `AuthService.pesanError`. Email diambil dari `FirebaseAuth.instance.currentUser?.email`; bila kosong → SnackBar "Email akun tidak ditemukan."
-  3. **Notifikasi** — membuka halaman `NotificationPage`: `AppBar` latar `bg`, judul "Notifikasi" 18/800 ls −0.3, `titleSpacing: 0`. Satu `SwitchListTile` untuk `users/{uid}.notifikasi` (thumb aktif `primary`), judul "Notifikasi pesanan" 14/700, subtitle "Dapatkan pemberitahuan saat status pesananmu berubah." 12 muted. Perubahan langsung ditulis ke Firestore (optimistic UI + rollback bila gagal).
-  4. **Keluar** — `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
+  3. **Ubah kata sandi** (ikon `lock_outline_rounded`) — bottom sheet `_SheetUbahSandi` dengan gaya **sama dengan Edit profil** (`showModalBottomSheet`, `isScrollControlled: true`, latar `surface`, radius atas 24, padding 20 + `_NaikKeyboard` agar sheet naik halus di atas keyboard): judul "Ubah kata sandi" 18/800 ls −0.3 → jarak 16 → label "Kata sandi lama" 12/700 `textSecondary` + field tersamar (`obscureText`, tanpa autofocus, aksi keyboard *next*) → jarak 14 → label "Kata sandi baru" + field tersamar (placeholder "Minimal 6 karakter", aksi *next*) → jarak 14 → label "Konfirmasi kata sandi baru" + field tersamar (placeholder "Ulangi kata sandi baru", aksi *done* = simpan) → jarak 16 → tombol utama **Simpan** (`PrimaryButton`, teks "Menyimpan..." dan field nonaktif saat proses). Simpan diabaikan bila sandi lama/baru kosong; bila sandi baru ≠ konfirmasi → SnackBar "Konfirmasi kata sandi baru tidak cocok." (tanpa memanggil Firebase). Simpan → `AuthService.ubahSandi(lama, baru)` (`reauthenticateWithCredential(EmailAuthProvider.credential(email, lama))` → `updatePassword(baru)`). Sukses → sheet ditutup + SnackBar "Kata sandi berhasil diubah."; `wrong-password`/`invalid-credential` → SnackBar "Kata sandi lama salah." (sheet tetap terbuka); error lain → pesan dari `AuthService.pesanError` (mis. "Kata sandi minimal 6 karakter."). Reset lewat email tetap ada di Login ("Lupa kata sandi?").
+  4. **Keluar** (ikon `logout_rounded`) — **dipisah** jarak 24 dari baris di atasnya, ikon + label warna `danger`, tanpa chevron, tanpa garis bawah. `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
 - **Field Firestore baru:** `users/{uid}.fotoUrl: string` (opsional, kosong/default `""`). URL `https://res.cloudinary.com/...`. Karena ini penambahan skema, **wajib disetujui P1** dan dicatat di kontrak `PEMBAGIAN_TUGAS.md` sebelum merge.
 - Bawah: strip keranjang + navbar (tab Akun aktif).
 
