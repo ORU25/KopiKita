@@ -71,6 +71,17 @@ class AuthService {
     }
   }
 
+  /// Verifikasi ulang dengan sandi lama, lalu ganti ke sandi baru.
+  static Future<void> ubahSandi(String lama, String baru) async {
+    final user = _auth.currentUser!;
+    final cred = EmailAuthProvider.credential(
+      email: user.email!,
+      password: lama,
+    );
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(baru);
+  }
+
   /// Keluar dari akun + bersihkan cache gambar (mencegah bug gambar tertukar di Web)
   static Future<void> keluar() async {
     await _auth.signOut();
