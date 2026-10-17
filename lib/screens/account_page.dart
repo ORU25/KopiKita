@@ -1,6 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../data/dummy_data.dart';
+import '../models/voucher.dart'; // Ganti import dummy dengan model asli
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
@@ -110,15 +111,6 @@ class AccountPage extends StatelessWidget {
               ? '?'
               : namaTampil.trim().substring(0, 1).toUpperCase();
 
-          final voucher = voucherKode
-              .map(
-                (kode) => voucherSaya.firstWhere(
-                  (v) => v.kode == kode,
-                  orElse: () => Voucher(kode, 'Voucher tersedia'),
-                ),
-              )
-              .toList();
-
           return ListView(
             padding: const EdgeInsets.fromLTRB(0, 24, 0, 170),
             children: [
@@ -184,27 +176,53 @@ class AccountPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              SizedBox(
-                height: 76,
-                child: voucherKode.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          'Belum ada voucher.',
-                          style: ts(13, 500, color: AppColors.muted),
-                        ),
-                      )
-                    : ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: voucher.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(width: 10),
-                        itemBuilder: (context, i) =>
-                            _KartuVoucher(voucher[i]),
-                      ),
+
+              // --- PERBAIKAN: StreamBuilder untuk Voucher dari Firestore ---
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('vouchers').snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SizedBox(height: 76); // Loading state
+                  }
+
+                  // 1. Ambil semua voucher yang ada di sistem (Firestore)
+                  final semuaVoucher = snapshot.data!.docs
+                      .map((d) => Voucher.fromMap(d.id, d.data() as Map<String, dynamic>))
+                      .toList();
+
+                  // 2. Cocokkan dengan voucher milik user. 
+                  // Jika voucher sudah dihapus dari sistem (tidak ada di semuaVoucher), otomatis dilewati.
+                  final voucher = <Voucher>[];
+                  for (final kode in voucherKode) {
+                    final match = semuaVoucher.where((v) => v.kode == kode && v.aktif);
+                    if (match.isNotEmpty) {
+                      voucher.add(match.first);
+                    }
+                  }
+
+                  // 3. Tampilkan
+                  return SizedBox(
+                    height: 76,
+                    child: voucher.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Text(
+                              'Belum ada voucher.',
+                              style: ts(13, 500, color: AppColors.muted),
+                            ),
+                          )
+                        : ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: voucher.length,
+                            separatorBuilder: (_, _) => const SizedBox(width: 10),
+                            itemBuilder: (context, i) => _KartuVoucher(voucher[i]),
+                          ),
+                  );
+                },
               ),
+              // -------------------------------------------------------------
+              
               const SizedBox(height: 12),
               _barisPengaturan(
                 'Edit profil',
@@ -247,8 +265,6 @@ class AccountPage extends StatelessWidget {
     );
   }
 }
-
-// _KartuVoucher + _DashedBorderPainter — biarkan sama persis seperti file asli.
 
 // _KartuVoucher: kartu 200×76 radius 18, latar tint, border putus-putus caramel
 class _KartuVoucher extends StatelessWidget {

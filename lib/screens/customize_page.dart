@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -47,8 +48,43 @@ class _CustomizePageState extends State<CustomizePage> {
   String _es = 'Normal'; // Sedikit / Normal / Banyak
   final Set<String> _addOn = {}; // Add-on terpilih
   int _jumlah = 1; // Jumlah pesanan
-  // _catatanController: mengontrol input catatan untuk barista
   final TextEditingController _catatanController = TextEditingController();
+
+  // ---------- STATE CONFIG DARI WEB ----------
+  bool _memuatConfig = true;
+  int _hargaLarge = 0;
+  Map<String, int> _addOnMenu = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Set default suhu sesuai pengaturan web. Jika kosong (makanan), abaikan.
+    if (widget.produk.suhu.isNotEmpty) {
+      _suhu = widget.produk.suhu.first;
+    }
+    _ambilConfig();
+  }
+
+  // _ambilConfig: Mengambil harga Large dan Add-on langsung dari Firestore
+  Future<void> _ambilConfig() async {
+    try {
+      final snap = await FirebaseFirestore.instance.doc('config/menu').get();
+      final data = snap.data();
+      if (data != null) {
+        _hargaLarge = (data['hargaLarge'] ?? 0) as int;
+        final rawAddOn = data['addOn'] as Map<String, dynamic>? ?? {};
+        _addOnMenu = rawAddOn.map((key, value) => MapEntry(key, (value as num).toInt()));
+      }
+    } catch (e) {
+      // Jika gagal memuat dari web, fallback ke dummy_data.dart
+      _hargaLarge = hargaLarge;
+      _addOnMenu = Map<String, int>.from(addOnMenu);
+    }
+    
+    if (mounted) {
+      setState(() => _memuatConfig = false);
+    }
+  }
 
   // dispose: membersihkan controller saat widget dihancurkan
   @override
@@ -58,17 +94,19 @@ class _CustomizePageState extends State<CustomizePage> {
   }
 
   // ---------- DERIVED STATE ----------
-  // _hargaSatuan: harga dasar + Large + total add-on
+  // _hargaSatuan: harga dasar + Large (dari web) + total add-on (dari web)
   int get _hargaSatuan =>
       widget.produk.harga +
-      (_ukuran == 'Large' ? hargaLarge : 0) +
-      _addOn.fold(0, (s, a) => s + addOnMenu[a]!);
+      (_ukuran == 'Large' ? _hargaLarge : 0) +
+      _addOn.fold(0, (s, a) => s + (_addOnMenu[a] ?? 0));
 
   // _tambah: masukkan item ke keranjang lalu tutup layar
   void _tambah() {
     final p = widget.produk;
     context.read<CartProvider>().addItem(
       CartItem(
+        productId: p.id,
+        gambarUrl: p.gambarUrl,
         nama: p.nama,
         harga: _hargaSatuan,
         makanan: p.makanan,
@@ -77,7 +115,7 @@ class _CustomizePageState extends State<CustomizePage> {
         gula: _gula,
         es: _es,
         // Urutkan add-on sesuai urutan menu agar kunci item konsisten
-        addOn: addOnMenu.keys.where(_addOn.contains).toList(),
+        addOn: _addOnMenu.keys.where(_addOn.contains).toList(),
         catatan: _catatanController.text.trim(),
         jumlah: _jumlah,
       ),
@@ -87,6 +125,13 @@ class _CustomizePageState extends State<CustomizePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Jika config dari web belum termuat, tampilkan loading
+    if (_memuatConfig) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
     final p = widget.produk;
     // Padding viewInsets: footer naik di atas keyboard saat mengetik catatan
     return Padding(
@@ -103,8 +148,7 @@ class _CustomizePageState extends State<CustomizePage> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Expanded: isi pilihan bisa di-scroll; controller milik sheet agar
-          // tarik turun saat isi di posisi atas ikut menutup sheet
+          // Expanded: isi pilihan bisa di-scroll
           Expanded(
             child: ListView(
               controller: widget.scrollController,
@@ -120,30 +164,44 @@ class _CustomizePageState extends State<CustomizePage> {
 
   // _isiPilihan: daftar widget pilihan di dalam sheet
   List<Widget> _isiPilihan(Produk p) {
+    // Ambil daftar add-on yang diizinkan dari pengaturan web & config
+    final addOnTersedia = p.addOnBerlaku(_addOnMenu.keys);
+
     return [
-      // Nama + deskripsi · harga dasar di kanan. Inset ekstra 4 (total 24):
-      // teks polos di tepi 20 terlihat lebih mepet daripada tombol berlatar
+      // Nama + deskripsi + gambar produk di kiri.
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ProductThumb(
+              size: 64,
+              makanan: p.makanan,
+              nama: p.nama,
+              url: p.gambarUrl,
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p.nama, style: ts(22, 700, ls: -0.3)),
+                  Text(p.nama, style: ts(18, 700, ls: -0.3)),
                   const SizedBox(height: 2),
-                  Text(p.deskripsi, style: ts(13, 500, color: AppColors.muted)),
+                  Text(
+                    p.deskripsi,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: ts(12, 500, color: AppColors.muted),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 2),
               child: Text(
                 rp(p.harga),
-                style: ts(16, 800, color: AppColors.primary),
+                style: ts(15, 800, color: AppColors.primary),
               ),
             ),
           ],
@@ -152,36 +210,44 @@ class _CustomizePageState extends State<CustomizePage> {
 
       // Opsi minuman hanya untuk produk non-makanan
       if (!p.makanan) ...[
-        const SizedBox(height: 14),
-        // Ukuran: baris sendiri, chip berikon (cangkir kecil / besar)
-        _grup(
-          'Ukuran',
-          _chipPilihan(
-            ['Regular', 'Large'],
-            _ukuran,
-            (v) => setState(() => _ukuran = v),
-            label: ['Regular', 'Large +${rp(hargaLarge)}'],
-            ikon: [
-              (Icons.coffee_outlined, 16.0),
-              (Icons.coffee_outlined, 20.0),
-            ],
+        const SizedBox(height: 20),
+        
+        // Ukuran: Tampil jika `bisaLarge` true, memakai harga dari web
+        if (p.bisaLarge) ...[
+          _grup(
+            'Ukuran',
+            _chipPilihan(
+              ['Regular', 'Large'],
+              _ukuran,
+              (v) => setState(() => _ukuran = v),
+              label: ['Regular', 'Large +${rp(_hargaLarge)}'],
+              ikon: [
+                (Icons.coffee_outlined, 16.0),
+                (Icons.coffee_outlined, 20.0),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
-        // Suhu: baris sendiri, chip berikon (api / kristal es)
-        _grup(
-          'Suhu',
-          _chipPilihan(
-            ['Panas', 'Es'],
-            _suhu,
-            (v) => setState(() => _suhu = v),
-            ikon: [
-              (Icons.local_fire_department_outlined, 18.0),
-              (Icons.ac_unit_rounded, 18.0),
-            ],
+          const SizedBox(height: 14),
+        ],
+
+        // Suhu: Tampil dinamis sesuai `suhu` dari web (misal hanya ['Es'])
+        if (p.suhu.isNotEmpty) ...[
+          _grup(
+            'Suhu',
+            _chipPilihan(
+              p.suhu,
+              _suhu,
+              (v) => setState(() => _suhu = v),
+              ikon: p.suhu.map((s) {
+                return s == 'Panas'
+                    ? (Icons.local_fire_department_outlined, 18.0)
+                    : (Icons.ac_unit_rounded, 18.0);
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
+          const SizedBox(height: 14),
+        ],
+
         // Level gula
         _grup(
           'Level gula',
@@ -191,7 +257,8 @@ class _CustomizePageState extends State<CustomizePage> {
             (v) => setState(() => _gula = v),
           ),
         ),
-        // Level es: disembunyikan bila suhu Panas
+
+        // Level es: disembunyikan bila suhu bukan 'Es'
         if (_suhu == 'Es') ...[
           const SizedBox(height: 14),
           _grup(
@@ -203,11 +270,14 @@ class _CustomizePageState extends State<CustomizePage> {
             ),
           ),
         ],
-        const SizedBox(height: 14),
-        // Add-on: baris checkbox kecil tanpa garis pemisah
-        Text('Add-on', style: ts(12, 600, color: AppColors.muted)),
-        const SizedBox(height: 4),
-        for (final a in addOnMenu.entries) _barisAddOn(a.key, a.value),
+
+        // Add-on: Tampil dinamis dan memakai harga dari web
+        if (addOnTersedia.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text('Add-on', style: ts(12, 600, color: AppColors.muted)),
+          const SizedBox(height: 4),
+          for (final a in addOnTersedia) _barisAddOn(a, _addOnMenu[a] ?? 0),
+        ],
       ],
       const SizedBox(height: 14),
 
@@ -237,8 +307,6 @@ class _CustomizePageState extends State<CustomizePage> {
   }
 
   // _chipPilihan: chip sama lebar tinggi 44 radius 14
-  // Terpilih: latar primary teks putih; tidak terpilih: latar fill
-  // label: teks tampilan bila beda dari nilai; ikon: (ikon, ukuran) per opsi
   Widget _chipPilihan(
     List<String> opsi,
     String terpilih,
@@ -264,7 +332,6 @@ class _CustomizePageState extends State<CustomizePage> {
   }
 
   // _chip: satu chip pilihan tinggi 44 radius 14, ikon opsional di kiri teks
-  // Aktif: latar primary teks putih (lebih gelap); lainnya: fill teks textSecondary
   Widget _chip(
     String teks,
     bool aktif,
@@ -300,8 +367,7 @@ class _CustomizePageState extends State<CustomizePage> {
     );
   }
 
-  // _barisAddOn: baris 44 (target sentuh) dengan checkbox kecil 18 radius 5,
-  // inset 4 di kiri-kanan agar sejajar nama menu & tidak melebihi elemen lain
+  // _barisAddOn: baris 44 (target sentuh) dengan checkbox kecil 18 radius 5
   Widget _barisAddOn(String nama, int harga) {
     final aktif = _addOn.contains(nama);
     return InkWell(
@@ -313,7 +379,6 @@ class _CustomizePageState extends State<CustomizePage> {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Row(
           children: [
-            // Checkbox kustom: aktif latar primary + centang, kosong border disabled
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 18,

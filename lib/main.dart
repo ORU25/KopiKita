@@ -101,6 +101,13 @@ class NavigationPage extends StatelessWidget {
     AccountPage(), // Halaman Akun
   ];
 
+  void _pindahTab(int i) {
+    if (i == tabPesanan && tab.value != tabPesanan) {
+      OrdersPage.mintaAktif();
+    }
+    tab.value = i;
+  }
+
   @override
   Widget build(BuildContext context) {
     // ValueListenableBuilder: membangun ulang ketika tab berubah
@@ -116,7 +123,7 @@ class NavigationPage extends StatelessWidget {
           // AppBottomBar: strip keranjang + navbar (lib/widgets/common.dart)
           bottomNavigationBar: AppBottomBar(
             index: index,
-            onTap: (i) => tab.value = i, // Ubah state tab saat ditekan
+            onTap: _pindahTab,
           ),
         );
       },
