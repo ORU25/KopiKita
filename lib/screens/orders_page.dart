@@ -11,46 +11,56 @@ import '../widgets/common.dart';
 class OrdersPage extends StatelessWidget {
   const OrdersPage({super.key});
 
+  // Counter yang naik saat ada permintaan "buka tab Riwayat".
+  static final ValueNotifier<int> _mintaRiwayat = ValueNotifier<int>(0);
+
+  // mintaRiwayat: dipanggil dari luar (mis. tombol "Pesan Lagi" di Home)
+  // agar OrdersPage landing di tab Riwayat, bukan tab Aktif default.
+  static void mintaRiwayat() => _mintaRiwayat.value++;
+
   @override
   Widget build(BuildContext context) {
-    // DefaultTabController: mengatur state tab Aktif | Riwayat
-    return DefaultTabController(
-      length: 2,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Judul halaman 24/800
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-              child: Text('Pesanan Saya', style: ts(24, 800, ls: -0.4)),
+    return ValueListenableBuilder<int>(
+      valueListenable: _mintaRiwayat,
+      builder: (context, gen, _) {
+        return DefaultTabController(
+          key: ValueKey(gen),
+          length: 2,
+          initialIndex: gen == 0 ? 0 : 1, // gen>0 → langsung tab Riwayat
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                  child: Text('Pesanan Saya', style: ts(24, 800, ls: -0.4)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TabBar(
+                    indicatorColor: AppColors.primary,
+                    indicatorWeight: 2,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: AppColors.divider,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.muted,
+                    labelStyle: ts(14, 700),
+                    unselectedLabelStyle: ts(14, 600),
+                    tabs: const [
+                      Tab(height: 44, text: 'Aktif'),
+                      Tab(height: 44, text: 'Riwayat'),
+                    ],
+                  ),
+                ),
+                const Expanded(
+                  child: TabBarView(children: [_TabAktif(), _TabRiwayat()]),
+                ),
+              ],
             ),
-            // TabBar teks: garis bawah 2 primary di tab aktif, garis dasar 1 divider
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TabBar(
-                indicatorColor: AppColors.primary,
-                indicatorWeight: 2,
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: AppColors.divider,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.muted,
-                labelStyle: ts(14, 700),
-                unselectedLabelStyle: ts(14, 600),
-                tabs: const [
-                  Tab(height: 44, text: 'Aktif'),
-                  Tab(height: 44, text: 'Riwayat'),
-                ],
-              ),
-            ),
-            // TabBarView: isi tab Aktif dan Riwayat
-            const Expanded(
-              child: TabBarView(children: [_TabAktif(), _TabRiwayat()]),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -61,7 +71,6 @@ class _TabAktif extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // context.watch: pesanan aktif berubah setelah checkout
     final pesanan = context.watch<CartProvider>().pesananAktif;
     if (pesanan == null) {
       return Center(
@@ -70,7 +79,6 @@ class _TabAktif extends StatelessWidget {
       );
     }
 
-    // ponytail: status statis, nanti diganti Firestore stream (realtime)
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
       children: [
@@ -83,7 +91,6 @@ class _TabAktif extends StatelessWidget {
     );
   }
 
-  // _kartuAntrean: kartu primary radius 24 dengan lingkaran deko caramel
   Widget _kartuAntrean(Pesanan p) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -91,7 +98,6 @@ class _TabAktif extends StatelessWidget {
         color: AppColors.primary,
         child: Stack(
           children: [
-            // Lingkaran dekoratif caramel opacity 0.45
             Positioned(
               right: -40,
               top: -20,
@@ -126,7 +132,6 @@ class _TabAktif extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Badge status: tinggi 32, latar cream, teks primary 13/800
                   Container(
                     height: 32,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -147,10 +152,9 @@ class _TabAktif extends StatelessWidget {
     );
   }
 
-  // _kartuStatus: stepper vertikal 5 langkah
   Widget _kartuStatus(int sekarang) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -165,19 +169,15 @@ class _TabAktif extends StatelessWidget {
     );
   }
 
-  // _langkah: satu baris stepper (titik 28 + garis penghubung + label & catatan)
   Widget _langkah(int i, int sekarang, {required bool terakhir}) {
-    final selesai = i < sekarang; // Langkah sudah dilalui
-    final kini = i == sekarang; // Langkah saat ini
-    // Catatan: langkah selesai menampilkan "Selesai", sisanya catatan aslinya
+    final selesai = i < sekarang;
+    final kini = i == sekarang;
     final catatan = selesai ? 'Selesai' : statusPesanan[i][1];
 
-    // IntrinsicHeight: agar garis penghubung setinggi baris
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Kolom titik + garis
           SizedBox(
             width: 28,
             child: Column(
@@ -197,10 +197,10 @@ class _TabAktif extends StatelessWidget {
                         : Border.all(color: AppColors.pending, width: 2),
                   ),
                   child: selesai
-                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                      ? const Icon(Icons.check_rounded,
+                          size: 16, color: Colors.white)
                       : null,
                 ),
-                // Garis penghubung: primary bila sudah dilalui, outline bila belum
                 if (!terakhir)
                   Expanded(
                     child: Container(
@@ -212,7 +212,6 @@ class _TabAktif extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          // Label + catatan
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(bottom: terakhir ? 0 : 16),
@@ -222,7 +221,9 @@ class _TabAktif extends StatelessWidget {
                   Text(
                     statusPesanan[i][0],
                     style: ts(14, kini ? 800 : 600,
-                        color: selesai || kini ? AppColors.ink : AppColors.muted),
+                        color: selesai || kini
+                            ? AppColors.ink
+                            : AppColors.muted),
                   ),
                   Text(catatan, style: ts(12, 500, color: AppColors.muted)),
                 ],
@@ -234,7 +235,6 @@ class _TabAktif extends StatelessWidget {
     );
   }
 
-  // _kartuDetail: daftar item + total dibayar
   Widget _kartuDetail(Pesanan p) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -282,10 +282,10 @@ class _TabRiwayat extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
       children: [
         for (final bulan in riwayatPerBulan.entries) ...[
-          // Header bulan 13/700 muted
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 4),
-            child: Text(bulan.key, style: ts(13, 700, color: AppColors.muted)),
+            child: Text(bulan.key,
+                style: ts(13, 700, color: AppColors.muted)),
           ),
           for (final r in bulan.value) _baris(context, r),
         ],
@@ -293,7 +293,6 @@ class _TabRiwayat extends StatelessWidget {
     );
   }
 
-  // _baris: baris datar thumbnail 48 · ringkasan · tanggal · total + "Pesan lagi"
   Widget _baris(BuildContext context, RiwayatPesanan r) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -302,15 +301,18 @@ class _TabRiwayat extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Foto dari item pertama di ringkasan ("Americano, Croissant" → Americano)
-          ProductThumb(size: 48, nama: r.ringkasan.split(RegExp(r',| ×')).first),
+          ProductThumb(
+              size: 48,
+              nama: r.ringkasan.split(RegExp(r',| ×')).first),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(r.ringkasan,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(14, 700)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ts(14, 700)),
                 Text('${r.tanggal} · ${r.status}',
                     style: ts(12, 500, color: AppColors.muted)),
               ],
@@ -321,9 +323,9 @@ class _TabRiwayat extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(rp(r.total), style: ts(14, 800)),
-              // GestureDetector: "Pesan lagi" → buka tab Menu
               GestureDetector(
-                onTap: () => NavigationPage.tab.value = NavigationPage.tabMenu,
+                onTap: () =>
+                    NavigationPage.tab.value = NavigationPage.tabMenu,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text('Pesan lagi',
