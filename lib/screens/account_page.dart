@@ -212,6 +212,9 @@ class AccountPage extends StatelessWidget {
                 _keluar,
                 warna: AppColors.danger,
                 garisBawah: false,
+                // Glyph logout lebih lebar (x 2–22 dari grid 24, ikon lain 4–20);
+                // dikecilkan agar tepi kirinya sejajar ikon di atas.
+                ukuranIkon: 19,
                 trailing: const SizedBox.shrink(),
               ),
             ],
@@ -240,6 +243,7 @@ class AccountPage extends StatelessWidget {
     Color warna = AppColors.ink,
     Widget? trailing,
     bool garisBawah = true,
+    double ukuranIkon = 22,
   }) {
     return InkWell(
       onTap: onTap,
@@ -254,7 +258,11 @@ class AccountPage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(ikon, size: 22, color: warna),
+              // Kotak tetap 22 agar label selalu mulai di x yang sama.
+              SizedBox(
+                width: 22,
+                child: Icon(ikon, size: ukuranIkon, color: warna),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(label, style: ts(14, 600, color: warna)),
@@ -323,6 +331,11 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
   late String _fotoUrl;
   Uint8List? _fotoBaru;
   bool _loading = false;
+  String? _errNama;
+  String? _errUmum;
+
+  static const _maxFotoBytes = 2 * 1024 * 1024; // 2 MB setelah kompresi
+  static const _formatFoto = {'jpg', 'jpeg', 'png', 'webp'};
 
   @override
   void initState() {
@@ -345,21 +358,34 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
       imageQuality: 85,
     );
     if (picked == null) return;
+    final ext = picked.name.split('.').last.toLowerCase();
+    if (!_formatFoto.contains(ext)) {
+      setState(() => _errUmum = 'Format foto harus JPG, PNG, atau WEBP.');
+      return;
+    }
     final bytes = await picked.readAsBytes();
     if (!mounted) return;
-    setState(() => _fotoBaru = bytes);
+    if (bytes.length > _maxFotoBytes) {
+      setState(() => _errUmum = 'Ukuran foto maksimal 2 MB.');
+      return;
+    }
+    setState(() {
+      _fotoBaru = bytes;
+      _errUmum = null;
+    });
   }
 
   Future<void> _simpan() async {
     final nama = _namaCtrl.text.trim();
     if (nama.length < 2) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Nama terlalu pendek.')));
+      setState(() => _errNama = 'Nama minimal 2 karakter.');
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errUmum = null;
+    });
     try {
       if (_fotoBaru != null) {
         _fotoUrl = await CloudinaryAccService.uploadBytes(_fotoBaru!);
@@ -375,10 +401,10 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+      setState(() {
+        _loading = false;
+        _errUmum = 'Gagal menyimpan: $e';
+      });
     }
   }
 
@@ -449,9 +475,13 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             style: ts(14, 500),
-            decoration: const InputDecoration(hintText: 'Nama lengkap'),
-            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Nama lengkap',
+              errorText: _errNama,
+            ),
+            onChanged: (_) => setState(() => _errNama = null),
           ),
+          _ErrorUmum(_errUmum),
           const SizedBox(height: 16),
           PrimaryButton(
             label: _loading ? 'Menyimpan...' : 'Simpan',
@@ -481,6 +511,21 @@ class _NaikKeyboard extends StatelessWidget {
   }
 }
 
+// _ErrorUmum: teks error 12 danger di atas tombol sheet; kosong bila null.
+class _ErrorUmum extends StatelessWidget {
+  final String? pesan;
+  const _ErrorUmum(this.pesan);
+
+  @override
+  Widget build(BuildContext context) {
+    if (pesan == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(pesan!, style: ts(12, 600, color: AppColors.danger)),
+    );
+  }
+}
+
 // _SheetUbahSandi: field sandi lama + sandi baru + simpan.
 class _SheetUbahSandi extends StatefulWidget {
   const _SheetUbahSandi();
@@ -494,6 +539,10 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
   final _baruCtrl = TextEditingController();
   final _konfirmasiCtrl = TextEditingController();
   bool _loading = false;
+  String? _errLama;
+  String? _errBaru;
+  String? _errKonfirmasi;
+  String? _errUmum;
 
   @override
   void dispose() {
@@ -504,12 +553,16 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
   }
 
   Future<void> _simpan() async {
-    if (_lamaCtrl.text.isEmpty || _baruCtrl.text.isEmpty) return;
-    if (_baruCtrl.text != _konfirmasiCtrl.text) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-            content: Text('Konfirmasi kata sandi baru tidak cocok.')));
+    // Validasi lokal dulu; error tampil di bawah field (SnackBar tertutup sheet).
+    setState(() {
+      _errLama = _lamaCtrl.text.isEmpty ? 'Wajib diisi.' : null;
+      _errBaru = _baruCtrl.text.length < 6 ? 'Minimal 6 karakter.' : null;
+      _errKonfirmasi = _konfirmasiCtrl.text != _baruCtrl.text
+          ? 'Tidak sama dengan kata sandi baru.'
+          : null;
+      _errUmum = null;
+    });
+    if (_errLama != null || _errBaru != null || _errKonfirmasi != null) {
       return;
     }
 
@@ -518,17 +571,49 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
       await AuthService.ubahSandi(_lamaCtrl.text, _baruCtrl.text);
       if (!mounted) return;
       Navigator.pop(context, true);
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      final pesan =
-          (e.code == 'wrong-password' || e.code == 'invalid-credential')
-              ? 'Kata sandi lama salah.'
-              : AuthService.pesanError(e);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(pesan)));
+      final sandiSalah = e is FirebaseAuthException &&
+          (e.code == 'wrong-password' || e.code == 'invalid-credential');
+      setState(() {
+        _loading = false;
+        if (sandiSalah) {
+          _errLama = 'Kata sandi lama salah.';
+        } else {
+          _errUmum = AuthService.pesanError(e);
+        }
+      });
     }
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController ctrl,
+    String? error,
+    VoidCallback hapusError, {
+    String? hint,
+    bool terakhir = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: ts(12, 700, color: AppColors.textSecondary)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: ctrl,
+          enabled: !_loading,
+          obscureText: true,
+          textInputAction:
+              terakhir ? TextInputAction.done : TextInputAction.next,
+          style: ts(14, 500),
+          decoration: InputDecoration(hintText: hint, errorText: error),
+          onChanged: (_) {
+            if (error != null) setState(hapusError);
+          },
+          onSubmitted: terakhir ? (_) => _simpan() : null,
+        ),
+      ],
+    );
   }
 
   @override
@@ -540,42 +625,17 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
         children: [
           Text('Ubah kata sandi', style: ts(18, 800, ls: -0.3)),
           const SizedBox(height: 16),
-          Text('Kata sandi lama',
-              style: ts(12, 700, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _lamaCtrl,
-            enabled: !_loading,
-            obscureText: true,
-            textInputAction: TextInputAction.next,
-            style: ts(14, 500),
-          ),
+          _field('Kata sandi lama', _lamaCtrl, _errLama,
+              () => _errLama = null),
           const SizedBox(height: 14),
-          Text('Kata sandi baru',
-              style: ts(12, 700, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _baruCtrl,
-            enabled: !_loading,
-            obscureText: true,
-            textInputAction: TextInputAction.next,
-            style: ts(14, 500),
-            decoration: const InputDecoration(hintText: 'Minimal 6 karakter'),
-          ),
+          _field('Kata sandi baru', _baruCtrl, _errBaru,
+              () => _errBaru = null,
+              hint: 'Minimal 6 karakter'),
           const SizedBox(height: 14),
-          Text('Konfirmasi kata sandi baru',
-              style: ts(12, 700, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _konfirmasiCtrl,
-            enabled: !_loading,
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            style: ts(14, 500),
-            decoration:
-                const InputDecoration(hintText: 'Ulangi kata sandi baru'),
-            onSubmitted: (_) => _simpan(),
-          ),
+          _field('Konfirmasi kata sandi baru', _konfirmasiCtrl,
+              _errKonfirmasi, () => _errKonfirmasi = null,
+              hint: 'Ulangi kata sandi baru', terakhir: true),
+          _ErrorUmum(_errUmum),
           const SizedBox(height: 16),
           PrimaryButton(
             label: _loading ? 'Menyimpan...' : 'Simpan',
