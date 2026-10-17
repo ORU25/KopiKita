@@ -154,13 +154,13 @@ class ProductThumb extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.tint,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
         makanan ? Icons.bakery_dining_outlined : Icons.coffee_outlined,
         color: AppColors.primary,
-        size: size * 0.4,
+        size: size * 0.7,
       ),
     );
   }
@@ -177,7 +177,7 @@ class ProductThumb extends StatelessWidget {
           child: Container(
             width: size,
             height: size,
-            color: AppColors.tint, // Latar cadangan
+            color: Colors.transparent, // Latar cadangan
             child: CachedNetworkImage(
               key: ValueKey(foto),
               imageUrl: foto,
