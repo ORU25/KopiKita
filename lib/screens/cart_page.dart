@@ -6,48 +6,61 @@ import '../models/cart_item.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
-import 'orders_page.dart'; // <--- TAMBAHAN: Import untuk memanggil mintaAktif()
+import '../widgets/voucher_sheet.dart';
+import 'orders_page.dart';
 
 // CartPage: layar Keranjang (DESIGN.md 3.5), tanpa navbar
-class CartPage extends StatelessWidget {
+class CartPage extends StatefulWidget {
   const CartPage({super.key});
 
-  // _pesan: buat pesanan, kembali ke halaman utama, buka tab Pesanan Aktif
-  Future<void> _pesan(BuildContext context, CartProvider cart) async {
-    try {
-      // Jika cart.checkout() di provider kamu sudah diubah menjadi async (Firestore),
-      // maka await ini akan menunggu proses simpan selesai.
-      await cart.checkout(); 
-      
-      if (!context.mounted) return;
+  @override
+  State<CartPage> createState() => _CartPageState();
+}
 
-      // PERBAIKAN: Paksa tab Pesanan membuka sub-tab "Aktif", bukan Riwayat
+class _CartPageState extends State<CartPage> {
+  // State: true setelah user menekan Pesan, supaya galat nomor meja baru tampil saat itu
+  bool _cobaPesan = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ambil tarif pajak terbaru dari config/menu (main.dart milik P2, tidak diubah)
+    context.read<CartProvider>().muatConfig();
+  }
+
+  void _snack(String pesan) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(pesan)));
+  }
+
+  // _pesan: validasi meja → checkout (transaction) → buka tab Pesanan Aktif
+  Future<void> _pesan(CartProvider cart) async {
+    if (cart.kesalahanMeja != null) {
+      setState(() => _cobaPesan = true);
+      return;
+    }
+    try {
+      await cart.checkout();
+      if (!mounted) return;
       OrdersPage.mintaAktif();
-      
-      // Pindah ke halaman tab Pesanan
       NavigationPage.tab.value = NavigationPage.tabPesanan;
-      
-      // Tutup halaman keranjang
       Navigator.pop(context);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('Gagal membuat pesanan: $e')),
-        );
+    } on CheckoutException catch (e) {
+      if (!mounted) return;
+      _snack(e.pesan);
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Gagal membuat pesanan. Coba lagi.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // context.watch: rebuild setiap isi keranjang berubah
     final cart = context.watch<CartProvider>();
 
-    // Scaffold: kerangka halaman Keranjang
     return Scaffold(
       body: SafeArea(
-        // ListView: konten bisa di-scroll, padding 24 20
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
           children: [
@@ -68,7 +81,7 @@ class CartPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Segmented tipe pesanan (terpilih tint/primary)
+            // Segmented tipe pesanan
             SegmentedPill(
               options: const ['Makan di tempat', 'Ambil sendiri'],
               selected: cart.makanDiTempat ? 0 : 1,
@@ -79,21 +92,40 @@ class CartPage extends StatelessWidget {
               foreground: AppColors.muted,
             ),
 
-            // Baris nomor meja (hanya bila makan di tempat)
+            // Nomor meja (wajib bila makan di tempat)
             if (cart.makanDiTempat)
               Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: AppColors.divider)),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text('Nomor meja',
-                          style: ts(14, 500, color: AppColors.muted)),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Text('Nomor meja',
+                            style: ts(14, 500, color: AppColors.muted)),
+                      ),
                     ),
-                    Text('${cart.nomorMeja}', style: ts(14, 700)),
+                    SizedBox(
+                      width: 130,
+                      child: TextFormField(
+                        key: const ValueKey('nomor-meja'),
+                        initialValue: cart.nomorMeja?.toString() ?? '',
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.end,
+                        maxLength: 3,
+                        style: ts(14, 700),
+                        onChanged: (v) => cart.setNomorMeja(int.tryParse(v)),
+                        decoration: InputDecoration(
+                          hintText: 'Isi meja',
+                          counterText: '',
+                          errorText: _cobaPesan ? cart.kesalahanMeja : null,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -132,7 +164,8 @@ class CartPage extends StatelessWidget {
                     _barisRingkasan('Subtotal', rp(cart.subtotal)),
                     if (cart.diskon > 0)
                       _barisRingkasan('Diskon', '−${rp(cart.diskon)}'),
-                    _barisRingkasan('Pajak 10%', rp(cart.pajak)),
+                    _barisRingkasan(
+                        'Pajak ${cart.persenPajak}%', rp(cart.pajak)),
                     const Divider(height: 24, color: AppColors.divider),
                     Row(
                       children: [
@@ -153,15 +186,17 @@ class CartPage extends StatelessWidget {
           ],
         ),
       ),
-      // Tombol utama tetap di bawah (left/right 20, bottom 24)
+      // Tombol utama tetap di bawah
       bottomNavigationBar: cart.items.isEmpty
           ? null
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 child: PrimaryButton(
-                  label: 'Pesan · ${rp(cart.total)}',
-                  onPressed: () => _pesan(context, cart),
+                  label: cart.memproses
+                      ? 'Memproses...'
+                      : 'Pesan · ${rp(cart.total)}',
+                  onPressed: cart.memproses ? null : () => _pesan(cart),
                 ),
               ),
             ),
@@ -171,7 +206,7 @@ class CartPage extends StatelessWidget {
   // _barisItem: thumbnail 56 · nama · opsi · harga · stepper
   Widget _barisItem(CartProvider cart, CartItem item) {
     return Container(
-      key: ValueKey(item.kunci), // TAMBAHAN: Key unik agar gambar tidak tertukar
+      key: ValueKey(item.kunci),
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.dividerSoft)),
@@ -179,7 +214,6 @@ class CartPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TAMBAHAN: url: item.gambarUrl agar gambar di keranjang sesuai
           ProductThumb(
             size: 56,
             makanan: item.makanan,
@@ -200,7 +234,6 @@ class CartPage extends StatelessWidget {
                   children: [
                     Expanded(
                         child: Text(rp(item.totalHarga), style: ts(14, 700))),
-                    // Stepper bulat − n +
                     _tombolStepper(Icons.remove_rounded, 'Kurangi',
                         () => cart.changeQuantity(item.kunci, item.jumlah - 1)),
                     SizedBox(
@@ -239,24 +272,37 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  // _barisVoucher: "KOPIKITA20 diterapkan" + link "Ganti"
+  // _barisVoucher: kode terpasang (atau "Belum ada voucher") + link "Ganti"
+  // Bila voucher tak lagi memenuhi syarat (mis. di bawah min. belanja) → peringatan.
   Widget _barisVoucher(BuildContext context, CartProvider cart) {
-    return SizedBox(
-      height: 56,
+    final alasan = cart.alasanVoucher;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56),
       child: Row(
         children: [
           const Icon(Icons.sell_outlined, size: 20, color: AppColors.primary),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              cart.voucher == null
-                  ? 'Belum ada voucher'
-                  : '${cart.voucher} diterapkan',
-              style: ts(14, 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cart.voucher == null
+                      ? 'Belum ada voucher'
+                      : alasan == null
+                          ? '${cart.voucher} diterapkan'
+                          : '${cart.voucher} belum berlaku',
+                  style: ts(14, 600),
+                ),
+                if (alasan != null)
+                  Text(alasan,
+                      style: ts(12, 500, color: AppColors.promoLabel)),
+              ],
             ),
           ),
           TextButton(
-            onPressed: () => segeraHadir(context, 'Ganti voucher'),
+            onPressed: () => bukaGantiVoucher(context),
             child: Text('Ganti', style: ts(14, 700, color: AppColors.primary)),
           ),
         ],

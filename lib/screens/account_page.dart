@@ -1,16 +1,18 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/voucher.dart';
+import '../models/voucher_rules.dart';
 import '../services/acc_cloud.dart';
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
+import '../services/voucher_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'promo_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
@@ -133,51 +135,58 @@ class AccountPage extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // Blok voucher milik P4 — baca vouchers/{kode} dari Firestore.
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('vouchers')
-                    .snapshots(),
+              // Blok voucher milik P4 — hanya voucher user (users/{uid}.voucher)
+              // yang masih aktif & belum kedaluwarsa, realtime dari vouchers/{kode}.
+              StreamBuilder<List<Voucher>>(
+                stream: VoucherRepository.streamKode(voucherKode),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const SizedBox(height: 76);
                   }
 
-                  final semuaVoucher = snapshot.data!.docs
-                      .map((d) => Voucher.fromMap(
-                          d.id, d.data() as Map<String, dynamic>))
+                  final voucher = snapshot.data!
+                      .where((v) => v.aktif && !v.kedaluwarsa())
                       .toList();
 
-                  final voucher = <Voucher>[];
-                  for (final kode in voucherKode) {
-                    final match = semuaVoucher
-                        .where((v) => v.kode == kode && v.aktif);
-                    if (match.isNotEmpty) {
-                      voucher.add(match.first);
-                    }
-                  }
-
-                  return SizedBox(
-                    height: 76,
-                    child: voucher.isEmpty
-                        ? Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              'Belum ada voucher.',
-                              style: ts(13, 500, color: AppColors.muted),
-                            ),
-                          )
-                        : ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: voucher.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, i) =>
-                                _KartuVoucher(voucher[i]),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 76,
+                        child: voucher.isEmpty
+                            ? Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: Text(
+                                  'Belum ada voucher.',
+                                  style: ts(13, 500, color: AppColors.muted),
+                                ),
+                              )
+                            : ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                itemCount: voucher.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, i) =>
+                                    _KartuVoucher(voucher[i]),
+                              ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const PromoPage()),
                           ),
+                          child: Text('Lihat semua',
+                              style:
+                                  ts(13, 700, color: AppColors.primary)),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

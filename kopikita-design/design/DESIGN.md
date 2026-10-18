@@ -275,15 +275,76 @@ Struktur: `SafeArea(bottom: false)` → `Column` (header tidak ikut scroll + `Ex
   - Loading/error/empty lewat `keadaanStream` dengan `kosong` = tidak ada produk yang `favorit.contains(p.id)` → `EmptyView(favorite_border_rounded, "Belum ada favorit", "Ketuk ikon hati pada menu untuk menyimpannya di sini.")`.
 - **Daftar**: urutan mengikuti katalog (`snap.requireData.where(p => favorit.contains(p.id))`), `ListView` padding atas 4 bawah 24, tiap item `BarisMenu(produk, favorit: true)`. Ketuk hati di sini → item langsung hilang dari daftar (stream favorit reaktif).
 
-
+### 3.4 Kustomisasi (`screens/Kustomisasi.png`, `source/Kustomisasi.dc.html`)
+ 
+Bottom sheet yang meluncur dari bawah, dibuka lewat `bukaKustomisasi(context, Produk p)` dari Menu, Beranda (Paling laris), Cari, dan Favorit. **Signature fungsi ini tidak boleh diubah.** Tanpa navbar dan tanpa strip keranjang.
+ 
+- **Sheet** (`showModalBottomSheet`, `isScrollControlled: true`, `useSafeArea: true`): latar `bg` (putih), radius atas 28. Isinya `DraggableScrollableSheet` (`initialChildSize` 0.9, `maxChildSize` 0.9, `minChildSize` 0.5). Ditarik turun sampai batas bawah atau ketuk di luar sheet = batal, tidak ada yang masuk keranjang.
+- **Handle** 40×4, warna `pending`, radius 2, margin atas 10 dan bawah 4.
+- **Memuat konfigurasi**: harga Large dan daftar add-on dibaca dari dokumen `config/menu` (`hargaLarge`: int; `addOn`: peta nama → harga). Selama dibaca tampil `CircularProgressIndicator` `primary` di tengah sheet. Bila gagal dibaca, memakai nilai cadangan `hargaLarge` dan `addOnMenu` di `lib/data/dummy_data.dart`. (Tarif pajak juga ada di `config/menu`, tetapi dipakai Keranjang, bukan sheet ini.)
+- **Isi** (`ListView`, padding 20 horizontal dan 12 vertikal, ikut `scrollController` sheet):
+  1. **Header produk**: `ProductThumb` 64 (radius 10) · `SizedBox(14)` · kolom nama 18/700 ls −0.3 dan deskripsi 12/500 `muted` (maks. 2 baris, ellipsis) · harga dasar 15/800 `primary` di kanan.
+  2. Jarak 20, lalu grup pilihan di bawah. **Produk Makanan tidak punya opsi minuman**; hanya field catatan.
+  3. **Ukuran** (hanya bila `Produk.bisaLarge`): dua chip sama lebar **Regular** dan **Large +Rp4.000** (nominal dari `config/menu`), ikon `coffee_outlined` 16 (Regular) dan 20 (Large). Bawaan Regular.
+  4. **Suhu** (sesuai `Produk.suhu`; tersembunyi bila kosong): chip **Panas** (`local_fire_department_outlined` 18) dan/atau **Es** (`ac_unit_rounded` 18). Bawaan = suhu pertama pada daftar produk, jika kosong Es.
+  5. **Level gula**: **Tanpa · Sedikit · Normal · Manis**, bawaan Normal.
+  6. **Level es** (hanya bila Suhu = Es): **Sedikit · Normal · Banyak**, bawaan Normal.
+  7. **Add-on** (hanya yang diizinkan produk lewat `Produk.addOnBerlaku`; `addOn` null = semua add-on katalog; tersembunyi bila tidak ada): label "Add-on" 12/600 `muted`, lalu baris-baris add-on.
+  8. **Catatan**: `TextField` hint "Catatan untuk barista (opsional)", ikon awal `edit_outlined` 20, padding vertikal 12.
+- **Label grup** 12/600 `muted`, jarak ke chip 8; jarak antar-grup 14.
+- **Chip pilihan**: tinggi 44, radius 14, sama lebar (`Expanded`) dengan jarak 8, teks 13/700 dengan `FittedBox(scaleDown)`. Terpilih: latar `primary`, teks/ikon putih. Tidak terpilih: latar `fill`, teks `textSecondary`. Transisi 150 ms.
+- **Baris add-on**: tinggi 44 (target sentuh), padding horizontal 4, `InkWell` radius 12. Checkbox kecil 18×18 radius 5: terpilih latar `primary` + centang putih 14, kosong border 1.5 `disabled`. Nama 13/600, harga "+Rp5.000" 12/700 `muted` di kanan.
+- **Footer** (tetap di bawah, border atas 1 `divider`, padding `fromLTRB(20, 12, 20, 20 + inset bawah)`): **stepper jumlah** tinggi 52, radius 16, latar `fill`, tombol − (nonaktif saat jumlah 1), angka 16/700 lebar 24, tombol +; jarak 12; tombol utama `Expanded` **"Tambah · Rp…"**. Seluruh isi sheet naik di atas keyboard (`viewInsets`) saat mengetik catatan.
+- **Harga**: harga satuan = harga dasar + tambahan Large (bila Large) + jumlah harga add-on terpilih. Tombol menampilkan harga satuan × jumlah.
+- **Tombol Tambah** → `CartProvider.addItem(CartItem(...))` lalu sheet ditutup (kembali ke layar asal). Add-on diurutkan menurut urutan katalog `config/menu` agar `kunci` item konsisten; item dengan `kunci` (`nama|opsi|catatan`) sama digabung (jumlah bertambah), opsi berbeda menjadi baris baru.
 ### 3.5 Keranjang (`screens/Keranjang.png`, `source/Keranjang.dc.html`)
-Tanpa navbar. Padding 24 20, gap 16.
-- Header: tombol kembali 44 · "Keranjang" 22/700 · kanan "3 item" 13/600 muted.
-- Segmented tipe pesanan **Makan di tempat | Ambil sendiri** (latar putih, terpilih `tint`/`primary`). Bila Makan di tempat: baris "Nomor meja … 7" (48 tinggi, garis bawah).
-- Card putih radius 20 berisi item (baris dengan pemisah `dividerSoft`): thumbnail 56 radius 10 · nama 14/700 · opsi 12 muted (mis. "Large · Es · Gula normal · Es normal · + Extra shot") · harga 14/700 · stepper bulat − n +. Baris terakhir di card: voucher "KOPIKITA20 diterapkan" + link "Ganti".
-- Ringkasan datar (13): Subtotal, Diskon (−), Pajak 10%, garis, **Total** 18/800. Catatan: "Bayar di kasir dengan tunai atau QRIS." 12 muted.
-- Tombol utama tetap di bawah (left/right 20, bottom 24): "Pesan · Rp76.560" → buat pesanan status `menunggu_bayar` → layar Pesanan (Aktif).
-- Contoh angka: Subtotal Rp87.000, Diskon −Rp17.400 (20%), Pajak Rp6.960 (10% dari setelah diskon), Total Rp76.560.
+ 
+Tanpa navbar dan tanpa strip keranjang. Padding 24 20 (isi `ListView` `fromLTRB(20, 16, 20, 100)`), gap 16.
+ 
+- **Header**: tombol kembali 44 · "Keranjang" 22/700 ls −0.3 · kanan "3 item" 13/600 `muted`.
+- **Segmented tipe pesanan** **Makan di tempat | Ambil sendiri** (latar `surface`, terpilih `tint`/`primary`) → `cart.setMakanDiTempat`.
+- **Nomor meja** (hanya bila Makan di tempat; **wajib**): baris dengan garis bawah `divider`, label "Nomor meja" 14/500 `muted` di kiri, kolom isian angka di kanan (lebar 130, rata kanan, maks. 3 digit, hint "Isi meja", teks 14/700). Kosong atau 0 → saat tombol **Pesan** ditekan, kolom menampilkan `errorText` **"Nomor meja wajib diisi."** dan pesanan tidak dikirim. Tidak ada nilai bawaan.
+- **Keadaan kosong**: "Keranjang masih kosong." 14/600 `muted`, rata tengah (padding vertikal 48); tombol Pesan disembunyikan.
+- **Card** `surface` radius 20, padding horizontal 16, berisi baris item (pemisah `dividerSoft`): thumbnail 56 radius 10 (`ProductThumb`, foto Cloudinary bila ada) · nama 14/700 · opsi 12/500 `muted` (mis. "Large · Es · Gula normal · Es normal · + Extra shot"; Makanan menampilkan catatan) · harga 14/700 · stepper bulat − n + (lingkaran 32 border `outline`, ikon `primary`, hit area 44; jumlah 0 menghapus baris). Baris terakhir di card: **voucher**.
+- **Baris voucher** (tinggi minimal 56): ikon `sell_outlined` 20 `primary` · teks 14/600 — **"Belum ada voucher"** atau **"KOPIKITA20 diterapkan"** · link **Ganti** 14/700 `primary` → sheet Ganti voucher (3.5a). Bila voucher terpasang tetapi tidak lagi memenuhi syarat (mis. subtotal turun di bawah minimal belanja): teks menjadi "KOPIKITA20 belum berlaku" dan di bawahnya alasan 12/500 `promoLabel` (mis. "Minimal belanja Rp50.000."); diskon dianggap Rp0 sampai syarat terpenuhi lagi.
+- **Ringkasan datar** (13): Subtotal, Diskon (−, hanya bila ada), **Pajak {persen}%**, garis, **Total** 18/800. Catatan "Bayar di kasir dengan tunai atau QRIS." 12 `muted`.
+  - **Voucher**: divalidasi ke `vouchers/{kode}` — harus `aktif`, `berlakuSampai` belum lewat, subtotal ≥ `minBelanja`. Tipe `persen` = `nilai`% × subtotal; tipe `potongan` = `nilai` rupiah. Diskon tidak pernah melebihi subtotal.
+  - **Pajak** = tarif `config/menu.pajak` (pecahan, mis. `0.10` = 10%; bawaan 0.10 bila tidak terbaca) × (subtotal − diskon), dibulatkan.
+  - Contoh angka: Subtotal Rp87.000, Diskon −Rp17.400 (KOPIKITA20, 20%), Pajak Rp6.960 (10% dari setelah diskon), Total Rp76.560.
+- **Tombol utama** tetap di bawah (left/right 20, bottom 24): **"Pesan · Rp76.560"**. Selama diproses berlabel "Memproses..." dan tidak bisa ditekan ulang.
+- **Alur Pesan** (satu transaction Firestore, tidak ada pesanan setengah jadi):
+  1. Validasi nomor meja (bila Makan di tempat) dan status login.
+  2. Baca `counters/antrean` (`tanggal`, `nomor`): **nomor antrean naik 1; bila `tanggal` berbeda dari hari ini, kembali ke 1** → "A-001".
+  3. Cek tiap produk di keranjang belum `habis` dan voucher masih valid di server.
+  4. Tulis `orders/{id}` berstatus `menunggu_bayar` (+ `createdAt`, `updatedAt` dari server) dan perbarui counter.
+  5. Kosongkan keranjang, lepas voucher, reset nomor meja → buka tab **Pesanan → Aktif** (`OrdersPage.mintaAktif()`), layar Keranjang ditutup.
+- **Error** (keranjang tetap utuh, tampil di SnackBar): tidak ada koneksi / koneksi lambat (batas 15 detik); menu habis atau sudah tidak tersedia ("{nama} sedang habis. Hapus dari keranjang dulu."); voucher tidak lagi valid; akses Firestore ditolak (rules); nomor meja kosong; sesi login berakhir.
+### 3.5a Sheet Ganti voucher (`widgets/voucher_sheet.dart`; belum ada gambar)
+ 
+Dibuka dari link **Ganti** di baris voucher Keranjang lewat `bukaGantiVoucher(context)`.
+ 
+- **Sheet** (`showModalBottomSheet`, `isScrollControlled: true`, `useSafeArea: true`): latar `bg`, radius atas 28, tinggi mengikuti isi (maks. layar), naik di atas keyboard. Handle 40×4 `pending`.
+- **Judul** "Pilih voucher" 18/800 ls −0.3 (padding `fromLTRB(20, 12, 20, 12)`).
+- **Input kode manual** (padding horizontal 20): `TextField` (hint "Masukkan kode voucher", ikon awal `confirmation_number_outlined`, huruf kapital, aksi keyboard *done*) + tombol teks **Pakai** 14/700 `primary` (jarak 8). Galat tampil di bawah input: 12/600 `promoLabel`.
+- **Daftar** (padding `fromLTRB(20, 0, 20, 24)`, jarak antar-kartu 10), sumber `users/{uid}.voucher` × `vouchers/{kode}` (dibaca sekali saat sheet dibuka):
+  1. Opsi **Tanpa voucher**: tinggi 56, radius 18, ikon `block_rounded` 20 `muted`, label 14/700.
+  2. **Kartu voucher**: latar `tint`, radius 18, padding 14 × 12, ikon `sell_outlined` 20 `primary` · kode 14/800 `primary` · info 12/500 `textSecondary` · bila tidak berlaku, alasan 12/600 `promoLabel`.
+  - Border 1 `outline`; **terpilih** border 1.5 `primary` + ikon `check_circle_rounded` `primary` di kanan.
+  - **Tidak memenuhi syarat** (tidak aktif, kedaluwarsa, atau subtotal di bawah `minBelanja`): diredupkan (opacity 0.55), tidak bisa diketuk, alasan tampil di kartu.
+- **Memilih** voucher atau menekan **Pakai** memvalidasi ke `vouchers/{kode}` lewat `CartProvider.terapkanVoucher`. Berhasil → sheet menutup dan Keranjang langsung menghitung ulang diskon, pajak, dan total. Gagal → sheet tetap terbuka dengan pesan:
+  - "Kode voucher tidak ditemukan.", "Voucher tidak aktif.", "Voucher sudah kedaluwarsa.", "Minimal belanja Rp50.000.", "Tidak ada koneksi internet.".
+  - **Tanpa voucher** melepas voucher dan menutup sheet.
+- **Keadaan**: memuat (spinner `primary` di tengah), error dengan tombol **Coba lagi** 14/700 `primary`, kosong "Kamu belum punya voucher." 13/500 `muted`.
+### 3.5b Promo & Voucher (`screens/promo_page.dart`; belum ada gambar)
+ 
+Daftar lengkap voucher milik pengguna. Dibuka dari tautan **Lihat semua** di bagian Voucher saya (Akun, 3.8); layar ini juga disiapkan untuk disambungkan dari Beranda.
+ 
+- `Scaffold(bg)` + `AppBar` sama dengan Notifikasi dan Favorit (latar `bg`, `elevation: 0`, `titleSpacing: 0`, judul **"Promo & Voucher"** 18/800 ls −0.3).
+- **Daftar** realtime: `users/{uid}.voucher` × `vouchers/{kode}`. `ListView` padding `fromLTRB(20, 8, 20, 24)`, jarak antar-kartu 10, memakai kartu voucher yang sama dengan 3.5a (latar `tint`, radius 18, border 1 `outline`).
+  - Catatan di tiap kartu 12/600 `promoLabel`: syarat dan masa berlaku, mis. "Min. belanja Rp50.000 · Berlaku s.d. 31 Okt 2026".
+  - Voucher yang **berlaku** di atas, ikon salin `copy_rounded` 18 `muted` di kanan; ketuk kartu = salin kode, SnackBar "Kode KOPIKITA20 disalin.".
+  - Voucher **tidak aktif atau kedaluwarsa** di bawah, diredupkan (opacity 0.55), tidak bisa diketuk, catatan "Tidak aktif." atau "Sudah kedaluwarsa.".
+- **Keadaan** (lewat `keadaanStream`): memuat → `LoadingView`; error → `ErrorView` ("Coba lagi"); kosong → `EmptyView(sell_outlined, "Belum ada voucher", "Voucher yang kamu dapat akan muncul di sini.")`.
 
 ### 3.6 Pesanan — Aktif (`screens/Pesanan-Aktif.png`, `source/Status.dc.html`)
 - Judul "Pesanan Saya" 24/800. Tab teks **Aktif | Riwayat** (tinggi 44, garis bawah 2 `primary` di tab aktif, garis dasar 1 `divider`).
@@ -304,7 +365,7 @@ Tanpa navbar. Padding 24 20, gap 16.
 ### 3.8 Akun (`screens/Akun.png`, `source/Akun.dc.html`)
 - Judul "Akun" 24/800.
 - Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted. **Hanya tampilan** — tidak bisa diketuk dan tanpa chevron (chevron di `screens/Akun.png` diabaikan); edit lewat baris "Edit profil".
-- **Voucher saya**: judul 16/800, daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`.
+- **Voucher saya**: judul 16/800; daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`. Data dari Firestore: hanya voucher milik pengguna (`users/{uid}.voucher` × `vouchers/{kode}`) yang `aktif` dan belum kedaluwarsa, realtime. Kosong → "Belum ada voucher." 13/500 `muted`. Di bawah daftar tautan **Lihat semua** 13/700 `primary` → Promo & Voucher (3.5b).
 - **Avatar profil** di card: bulat **48**, `ClipOval`. Bila `users/{uid}.fotoUrl` terisi → `Image.network` (`BoxFit.cover`); bila kosong atau gagal dimuat → latar `tint` dengan inisial nama 16/800 `primary` (`errorBuilder` menangani kasus jaringan mati). Saat pertama kali belum ada foto, tampilan persis seperti sebelumnya (inisial).
 - **Baris pengaturan datar** (`_barisPengaturan`: 52 tinggi, **ikon kiri 22** + jarak 12, label 14/600, chevron muted di kanan, garis bawah `divider`), urutan dari atas:
   1. **Notifikasi pesanan** (ikon `notifications_none_rounded`) — **toggle langsung di baris**, bukan halaman tersendiri: `Switch` di kanan (thumb aktif `primary`) menggantikan chevron; ketuk baris = membalik toggle. Nilai dibaca dari `users/{uid}.notifikasi` lewat `UserRepo.stream()` yang sama dengan card profil; ubah → `UserRepo.update({'notifikasi': v})` (cache lokal Firestore membuat switch langsung berubah); gagal → SnackBar `Gagal menyimpan: {e}`. (`NotificationPage` tetap ada, hanya dibuka dari tombol lonceng di Beranda.)
@@ -369,4 +430,4 @@ class AppColors {
 - Teks harga: format Rupiah tanpa desimal dengan titik ribuan — "Rp22.000" (`NumberFormat.currency(locale: 'id', symbol: 'Rp', decimalDigits: 0)`).
 
 ## 5. Belum didesain
-Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, detail promo/voucher, keadaan kosong (keranjang kosong → strip keranjang disembunyikan; belum ada pesanan aktif), keadaan error/loading, serta aplikasi staf & admin. Ikuti token dan komponen di atas untuk layar-layar ini.
+Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, keadaan error/loading, serta aplikasi staf & admin. (Detail promo/voucher sudah dirancang di 3.5b; sheet Ganti voucher di 3.5a.) Ikuti token dan komponen di atas untuk layar-layar yang belum didesain.
