@@ -34,35 +34,40 @@ class NotifPesanan {
 
   static Future<void> _onData(List<Pesanan> daftar) async {
     if (daftar.isEmpty) return;
-    final p = daftar.first;
-    final lama = _statusTerakhir[p.id];
-    _statusTerakhir[p.id] = p.status;
 
-    // Pertama kali lihat pesanan ini → jangan notif (bukan perubahan)
-    if (lama == null) return;
-    if (lama == p.status) return;
-
-    // Notifikasi untuk "Dibayar" (1), "Diproses" (2), dan "Siap diambil" (3).
-    // "Menunggu bayar" (0) tidak — itu status awal saat pesanan baru dibuat.
-    if (p.status != 1 && p.status != 2 && p.status != 3) return;
-
+    // Ambil data user sekali saja
     final data = await UserRepo.ambil();
     if (!UserRepo.notifikasiDari(data)) return;
 
     final messenger = _messengerKey.currentState;
     if (messenger == null) return;
 
-    // Pesan berbeda per status
-    final pesan = switch (p.status) {
-      1 => 'Pembayaran pesananmu sudah dikonfirmasi kasir.',
-      2 => 'Barista sedang membuat pesananmu.',
-      3 => 'Pesananmu siap diambil. Silakan ke kasir.',
-      _ => '',
-    };
-    if (pesan.isEmpty) return;
+    // Periksa SEMUA pesanan aktif
+    for (final p in daftar) {
+      final lama = _statusTerakhir[p.id];
+      _statusTerakhir[p.id] = p.status;
 
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(pesan)));
+      // Jika ini pertama kali kita melihat pesanan ini, jangan notif
+      if (lama == null) continue;
+
+      // Jika status tidak berubah, lewati
+      if (lama == p.status) continue;
+
+      // Notifikasi hanya untuk status: 1 (Dibayar), 2 (Diproses), 3 (Siap)
+      if (p.status == 1 || p.status == 2 || p.status == 3) {
+        final pesan = switch (p.status) {
+          1 => 'Pembayaran ${p.nomor} dikonfirmasi.',
+          2 => 'Pesanan ${p.nomor} sedang dibuat barista.',
+          3 => 'Pesanan ${p.nomor} siap diambil. Silakan ke kasir.',
+          _ => '',
+        };
+
+        if (pesan.isNotEmpty) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(pesan)));
+        }
+      }
+    }
   }
 }

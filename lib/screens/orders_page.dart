@@ -99,8 +99,8 @@ class _OrdersPageState extends State<OrdersPage>
   }
 }
 
-// _TabAktif: stream pesanan aktif user + kartu antrean + stepper status.
-// Realtime: perubahan status dari web Staf langsung sampai ke sini.
+// _TabAktif: stream pesanan aktif user. Mendukung LEBIH DARI SATU pesanan
+// (misal user checkout 2 kali). Ditampilkan sebagai daftar kartu modern.
 class _TabAktif extends StatefulWidget {
   const _TabAktif();
 
@@ -109,10 +109,8 @@ class _TabAktif extends StatefulWidget {
 }
 
 class _TabAktifState extends State<_TabAktif> {
-  // State: stream dibuat sekali di State (bukan di build) agar tidak berlangganan ulang
   late Stream<List<Pesanan>> _stream = OrderRepository.streamAktif();
 
-  // _muatUlang: berlangganan ulang setelah error
   void _muatUlang() => setState(() => _stream = OrderRepository.streamAktif());
 
   @override
@@ -132,246 +130,25 @@ class _TabAktifState extends State<_TabAktif> {
         );
         if (keadaan != null) return keadaan;
 
-        final pesanan = snap.requireData.first;
-        return _isiAktif(context, pesanan);
+        final daftarPesanan = snap.requireData;
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
+          itemCount: daftarPesanan.length,
+          itemBuilder: (context, index) {
+            final pesanan = daftarPesanan[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == daftarPesanan.length - 1 ? 0 : 24,
+              ),
+              child: _KartuPesananAktif(
+                pesanan: pesanan,
+                onBatalkan: () => _konfirmasiBatalkan(context, pesanan),
+              ),
+            );
+          },
+        );
       },
-    );
-  }
-
-  Widget _isiAktif(BuildContext context, Pesanan pesanan) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
-      children: [
-        _kartuAntrean(pesanan),
-        const SizedBox(height: 16),
-        _kartuStatus(pesanan.status),
-        const SizedBox(height: 16),
-        _kartuDetail(pesanan),
-        // Tombol Batalkan hanya saat masih menunggu_bayar (index 0).
-        if (pesanan.status == 0) ...[
-          const SizedBox(height: 16),
-          _tombolBatalkan(context, pesanan),
-        ],
-      ],
-    );
-  }
-
-  Widget _kartuAntrean(Pesanan p) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        color: AppColors.primary,
-        child: Stack(
-          children: [
-            Positioned(
-              right: -40,
-              top: -20,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  color: AppColors.caramel.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Nomor antrean',
-                          style: ts(12, 600, color: AppColors.cream),
-                        ),
-                        Text(
-                          p.nomor,
-                          style: ts(
-                            48,
-                            800,
-                            color: AppColors.cream,
-                            ls: -1,
-                            height: 1.1,
-                          ),
-                        ),
-                        Text(
-                          p.makanDiTempat
-                              ? 'Makan di tempat · Meja ${p.nomorMeja}'
-                              : 'Ambil sendiri',
-                          style: ts(13, 500, color: AppColors.cream),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.cream,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      statusPesanan[p.status][0],
-                      style: ts(13, 800, color: AppColors.primary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _kartuStatus(int sekarang) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < statusPesanan.length; i++)
-            _langkah(i, sekarang, terakhir: i == statusPesanan.length - 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _langkah(int i, int sekarang, {required bool terakhir}) {
-    final selesai = i < sekarang;
-    final kini = i == sekarang;
-    final catatan = selesai ? 'Selesai' : statusPesanan[i][1];
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 28,
-            child: Column(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selesai
-                        ? AppColors.primary
-                        : kini
-                        ? AppColors.caramel
-                        : AppColors.surface,
-                    border: selesai || kini
-                        ? null
-                        : Border.all(color: AppColors.pending, width: 2),
-                  ),
-                  child: selesai
-                      ? const Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        )
-                      : null,
-                ),
-                if (!terakhir)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: selesai ? AppColors.primary : AppColors.outline,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: terakhir ? 0 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    statusPesanan[i][0],
-                    style: ts(
-                      14,
-                      kini ? 800 : 600,
-                      color: selesai || kini ? AppColors.ink : AppColors.muted,
-                    ),
-                  ),
-                  Text(catatan, style: ts(12, 500, color: AppColors.muted)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _kartuDetail(Pesanan p) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        children: [
-          for (final item in p.items)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${item.jumlah}× ${item.labelSingkat}',
-                      style: ts(14, 600),
-                    ),
-                  ),
-                  Text(
-                    rp(item.totalHarga),
-                    style: ts(14, 500, color: AppColors.muted),
-                  ),
-                ],
-              ),
-            ),
-          const Divider(height: 20, color: AppColors.divider),
-          Row(
-            children: [
-              Expanded(child: Text('Total dibayar', style: ts(14, 700))),
-              Text(rp(p.total), style: ts(16, 800, color: AppColors.primary)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // _tombolBatalkan: hanya untuk status `menunggu_bayar`.
-  Widget _tombolBatalkan(BuildContext context, Pesanan p) {
-    return SizedBox(
-      height: 52,
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => _konfirmasiBatalkan(context, p),
-        icon: const Icon(Icons.close_rounded, size: 20),
-        label: Text('Batalkan pesanan', style: ts(14, 700)),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.danger,
-          side: const BorderSide(color: AppColors.danger, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
     );
   }
 
@@ -418,6 +195,384 @@ class _TabAktifState extends State<_TabAktif> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(pesan)));
     }
+  }
+}
+
+// _KartuPesananAktif: Desain modern mengadopsi referensi HTML (kartu gradasi
+// cokelat, badge putih, stepper horizontal ikon).
+class _KartuPesananAktif extends StatelessWidget {
+  final Pesanan pesanan;
+  final VoidCallback onBatalkan;
+
+  const _KartuPesananAktif({required this.pesanan, required this.onBatalkan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // --- 1. KARTU UTAMA (Gradasi & Stepper) ---
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF683315), // Cokelat gelap
+                Color(0xFF87451F), // Cokelat medium
+                Color(0xFFB35F28), // Cokelat terang
+              ],
+            ),
+            boxShadow:
+                AppShadows.float, // Pakai shadow float agar lebih melayang
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Ornamen Lingkaran (seperti di HTML)
+                Positioned(
+                  right: -40,
+                  top: -40,
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 20,
+                  bottom: -60,
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      color: AppColors.caramel.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+
+                // Konten Kartu
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Baris Atas: Nomor Antrean & Badge Status
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'NOMOR ANTREAN',
+                                  style: ts(
+                                    11,
+                                    800,
+                                    color: AppColors.cream.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    ls: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  pesanan.nomor,
+                                  style: ts(
+                                    40,
+                                    800,
+                                    color: Colors.white,
+                                    ls: -1,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Badge Status Putih (seperti HTML)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  pesanan.status == 0
+                                      ? Icons.schedule_rounded
+                                      : pesanan.status == 3
+                                      ? Icons.notifications_active_rounded
+                                      : Icons.coffee_rounded,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  statusPesanan[pesanan.status][0],
+                                  style: ts(12, 800, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Garis Pembatas
+                      Divider(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        height: 1,
+                      ),
+                      const SizedBox(height: 12),
+                      // Metode Pesanan (Ambil Sendiri / Makan di Tempat)
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.shopping_bag_rounded,
+                                  size: 14,
+                                  color: AppColors.cream,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  pesanan.makanDiTempat
+                                      ? 'Makan di Tempat (Meja ${pesanan.nomorMeja})'
+                                      : 'Ambil Sendiri',
+                                  style: ts(11, 600, color: AppColors.cream),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Stepper Status Horizontal (Gaya HTML)
+                      _StepperHorizontal(status: pesanan.status),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // --- 2. RINGKASAN ITEM & TOTAL
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.outline, width: 1),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  ProductThumb(
+                    size: 48,
+                    url: pesanan.items.isNotEmpty
+                        ? pesanan.items.first.gambarUrl
+                        : null,
+                    nama: pesanan.items.isNotEmpty
+                        ? pesanan.items.first.nama
+                        : null,
+                    makanan: pesanan.items.isNotEmpty
+                        ? pesanan.items.first.makanan
+                        : false,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pesanan.items.isNotEmpty
+                              ? pesanan.items.first.nama
+                              : 'Pesanan',
+                          style: ts(14, 700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          pesanan.items.length > 1
+                              ? '+ ${pesanan.items.length - 1} item lainnya'
+                              : '${pesanan.items.fold(0, (s, e) => s + e.jumlah)} item',
+                          style: ts(12, 500, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    rp(pesanan.total),
+                    style: ts(15, 800, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // --- 3. TOMBOL BATALKAN
+        if (pesanan.status == 0) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: onBatalkan,
+                icon: const Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  'Batalkan pesanan',
+                  style: ts(12, 700, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger, // Latar merah
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// _StepperHorizontal: indikator progres horizontal bergaya UI HTML.
+// Titik yang sudah lewat pakai centang, titik aktif pakai ikon spesifik,
+// titik belum pakai outline kosong.
+class _StepperHorizontal extends StatelessWidget {
+  final int status;
+  const _StepperHorizontal({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    // Label untuk di bawah ikon
+    const label = ['Menunggu', 'Dibayar', 'Proses', 'Siap', 'Selesai'];
+
+    return Row(
+      children: List.generate(statusPesanan.length, (index) {
+        final selesai = index < status;
+        final aktif = index == status;
+        final warna = selesai || aktif
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.3);
+
+        return Expanded(
+          child: Row(
+            children: [
+              Column(
+                children: [
+                  // Lingkaran Ikon
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: selesai
+                          ? Colors
+                                .white // Putih penuh jika selesai
+                          : aktif
+                          ? Colors.white.withValues(
+                              alpha: 0.2,
+                            ) // Transparan jika aktif
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selesai
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      selesai
+                          ? Icons.check_rounded
+                          : aktif
+                          ? (index == 0
+                                ? Icons.payments_rounded
+                                : index == 1
+                                ? Icons.verified_rounded
+                                : index == 2
+                                ? Icons.coffee_maker_rounded
+                                : index == 3
+                                ? Icons.notifications_active_rounded
+                                : Icons.check_circle_rounded)
+                          : null,
+                      size: 16,
+                      color: selesai
+                          ? AppColors
+                                .primary // Ikon cokelat jika latar putih
+                          : Colors.white, // Ikon putih jika transparan
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Teks Label Kecil
+                  Text(
+                    label[index],
+                    textAlign: TextAlign.center,
+                    style: ts(
+                      10,
+                      aktif ? 700 : 500,
+                      color: aktif || selesai
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.5),
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+              // Garis Penghubung (jika bukan index terakhir)
+              if (index < statusPesanan.length - 1)
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    margin: const EdgeInsets.only(
+                      bottom: 20,
+                    ), // Naikkan sedikit agar sejajar tengah ikon
+                    color: warna,
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 }
 
