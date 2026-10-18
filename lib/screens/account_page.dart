@@ -4,12 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../models/voucher.dart';
-import '../models/voucher_rules.dart';
 import '../services/acc_cloud.dart';
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
-import '../services/voucher_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'promo_page.dart';
@@ -78,7 +75,6 @@ class AccountPage extends StatelessWidget {
           final nama = UserRepo.namaDari(data);
           final email = UserRepo.emailDari(data);
           final role = UserRepo.roleDari(data);
-          final voucherKode = UserRepo.voucherDari(data);
           final fotoUrl = (data?['fotoUrl'] as String?) ?? '';
 
           final namaTampil = nama.isEmpty ? 'Pengguna' : nama;
@@ -128,69 +124,9 @@ class AccountPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text('Voucher saya', style: ts(16, 800)),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // Blok voucher milik P4 — hanya voucher user (users/{uid}.voucher)
-              // yang masih aktif & belum kedaluwarsa, realtime dari vouchers/{kode}.
-              StreamBuilder<List<Voucher>>(
-                stream: VoucherRepository.streamKode(voucherKode),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox(height: 76);
-                  }
-
-                  final voucher = snapshot.data!
-                      .where((v) => v.aktif && !v.kedaluwarsa())
-                      .toList();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 76,
-                        child: voucher.isEmpty
-                            ? Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                child: Text(
-                                  'Belum ada voucher.',
-                                  style: ts(13, 500, color: AppColors.muted),
-                                ),
-                              )
-                            : ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                itemCount: voucher.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(width: 10),
-                                itemBuilder: (context, i) =>
-                                    _KartuVoucher(voucher[i]),
-                              ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const PromoPage()),
-                          ),
-                          child: Text('Lihat semua',
-                              style:
-                                  ts(13, 700, color: AppColors.primary)),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-
               const SizedBox(height: 12),
               _barisPengaturan(
                 Icons.notifications_none_rounded,
@@ -201,6 +137,14 @@ class AccountPage extends StatelessWidget {
                   value: UserRepo.notifikasiDari(data),
                   activeThumbColor: AppColors.primary,
                   onChanged: (v) => _ubahNotifikasi(context, v),
+                ),
+              ),
+              _barisPengaturan(
+                Icons.confirmation_number_outlined,
+                'Voucher Saya',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PromoPage()),
                 ),
               ),
               _barisPengaturan(
@@ -654,64 +598,4 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
       ),
     );
   }
-}
-
-// _KartuVoucher: kartu 200×76 radius 18, latar tint, border putus-putus caramel
-class _KartuVoucher extends StatelessWidget {
-  final Voucher v;
-  const _KartuVoucher(this.v);
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      foregroundPainter: _DashedBorderPainter(),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.tint,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(v.kode, style: ts(14, 800, color: AppColors.primary)),
-            Text(
-              v.info,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: ts(12, 500, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// _DashedBorderPainter: border 1.5 putus-putus caramel dengan radius 18
-class _DashedBorderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.caramel
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-          const Radius.circular(18),
-        ),
-      );
-    for (final metric in path.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 9) {
-        canvas.drawPath(metric.extractPath(d, d + 5), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

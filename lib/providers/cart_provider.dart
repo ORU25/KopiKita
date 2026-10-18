@@ -31,8 +31,6 @@ class CartProvider extends ChangeNotifier {
 
   // STATE: metode pesanan — true = Makan di Tempat, false = Ambil Sendiri
   bool makanDiTempat = false;
-  // STATE: nomor meja (wajib bila makan di tempat); null = belum diisi
-  int? nomorMeja;
   // STATE: voucher yang diterapkan (null = tanpa voucher), sudah divalidasi
   Voucher? _voucher;
   // STATE: tarif pajak pecahan (0.10 = 10%), dibaca dari config/menu
@@ -62,13 +60,6 @@ class CartProvider extends ChangeNotifier {
   int get persenPajak => (tarifPajak * 100).round(); // label UI, mis. 10
   int get pajak => ((subtotal - diskon) * tarifPajak).round();
   int get total => subtotal - diskon + pajak;
-
-  // kesalahanMeja: pesan validasi nomor meja, null bila valid / tak diperlukan
-  String? get kesalahanMeja {
-    if (!makanDiTempat) return null;
-    final n = nomorMeja;
-    return (n == null || n <= 0) ? 'Nomor meja wajib diisi.' : null;
-  }
 
   // ---------- UTILITY ----------
   static String formatRupiah(int v) {
@@ -109,11 +100,6 @@ class CartProvider extends ChangeNotifier {
   // ---------- METODE PESANAN ----------
   void setMakanDiTempat(bool nilai) {
     makanDiTempat = nilai;
-    notifyListeners();
-  }
-
-  void setNomorMeja(int? nilai) {
-    nomorMeja = nilai;
     notifyListeners();
   }
 
@@ -178,9 +164,6 @@ class CartProvider extends ChangeNotifier {
   Future<void> checkout() async {
     if (_items.isEmpty || _memproses) return;
 
-    final galatMeja = kesalahanMeja;
-    if (galatMeja != null) throw CheckoutException(galatMeja);
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw const CheckoutException('Sesi login berakhir. Silakan masuk lagi.');
@@ -199,7 +182,6 @@ class CartProvider extends ChangeNotifier {
       final itemsPesan = List<CartItem>.of(_items);
       final sub = subtotal, dis = diskon, paj = pajak, tot = total;
       final kodeVoucher = voucher;
-      final meja = nomorMeja ?? 0;
       final dineIn = makanDiTempat;
       final idProduk = {
         for (final i in itemsPesan)
@@ -244,7 +226,7 @@ class CartProvider extends ChangeNotifier {
           uid: user.uid,
           nomor: kode,
           makanDiTempat: dineIn,
-          nomorMeja: meja,
+          nomorMeja: 0, // wajib di konstruktor Pesanan, TIDAK ditulis ke orders (lihat bawah)
           status: 0, // menunggu_bayar
           items: itemsPesan,
           subtotal: sub,
@@ -256,8 +238,9 @@ class CartProvider extends ChangeNotifier {
 
         // --- 3. TULIS ---
         tx.set(counterRef, {'tanggal': hariIni, 'nomor': nomorBaru});
+        // Fitur nomor meja dihapus: field nomorMeja tidak ikut ditulis ke orders
         tx.set(orderRef, {
-          ...pesanan.toMap(),
+          ...(pesanan.toMap()..remove('nomorMeja')),
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -268,7 +251,6 @@ class CartProvider extends ChangeNotifier {
       pesananAktif = dibuat;
       _items.clear(); // Kosongkan keranjang
       _voucher = null;
-      nomorMeja = null;
     } on CheckoutException {
       rethrow;
     } on TimeoutException {

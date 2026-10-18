@@ -103,27 +103,10 @@ void main() {
       expect(c.totalItems, 3);
     });
 
-    test('Makan di tempat wajib nomor meja', () {
-      final c = CartProvider()..setMakanDiTempat(true);
-      expect(c.kesalahanMeja, isNotNull);
-      c.setNomorMeja(7);
-      expect(c.kesalahanMeja, isNull);
-      c.setMakanDiTempat(false);
-      c.setNomorMeja(null);
-      expect(c.kesalahanMeja, isNull); // Ambil sendiri: meja tidak wajib
-    });
-
     test('checkout keranjang kosong: tidak melakukan apa-apa', () async {
       final c = CartProvider();
       await c.checkout(); // tidak melempar, tidak menyentuh Firebase
       expect(c.items, isEmpty);
-    });
-
-    test('checkout makan di tempat tanpa meja → CheckoutException', () {
-      final c = CartProvider()
-        ..addItem(_item())
-        ..setMakanDiTempat(true);
-      expect(() => c.checkout(), throwsA(isA<CheckoutException>()));
     });
   });
 }
