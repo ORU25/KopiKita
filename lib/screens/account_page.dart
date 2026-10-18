@@ -1,16 +1,15 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../models/voucher.dart';
 import '../services/acc_cloud.dart';
 import '../services/auth_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'promo_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
@@ -76,7 +75,6 @@ class AccountPage extends StatelessWidget {
           final nama = UserRepo.namaDari(data);
           final email = UserRepo.emailDari(data);
           final role = UserRepo.roleDari(data);
-          final voucherKode = UserRepo.voucherDari(data);
           final fotoUrl = (data?['fotoUrl'] as String?) ?? '';
 
           final namaTampil = nama.isEmpty ? 'Pengguna' : nama;
@@ -126,62 +124,9 @@ class AccountPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text('Voucher saya', style: ts(16, 800)),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // Blok voucher milik P4 — baca vouchers/{kode} dari Firestore.
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('vouchers')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox(height: 76);
-                  }
-
-                  final semuaVoucher = snapshot.data!.docs
-                      .map((d) => Voucher.fromMap(
-                          d.id, d.data() as Map<String, dynamic>))
-                      .toList();
-
-                  final voucher = <Voucher>[];
-                  for (final kode in voucherKode) {
-                    final match = semuaVoucher
-                        .where((v) => v.kode == kode && v.aktif);
-                    if (match.isNotEmpty) {
-                      voucher.add(match.first);
-                    }
-                  }
-
-                  return SizedBox(
-                    height: 76,
-                    child: voucher.isEmpty
-                        ? Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              'Belum ada voucher.',
-                              style: ts(13, 500, color: AppColors.muted),
-                            ),
-                          )
-                        : ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: voucher.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, i) =>
-                                _KartuVoucher(voucher[i]),
-                          ),
-                  );
-                },
-              ),
-
               const SizedBox(height: 12),
               _barisPengaturan(
                 Icons.notifications_none_rounded,
@@ -193,6 +138,11 @@ class AccountPage extends StatelessWidget {
                   activeThumbColor: AppColors.primary,
                   onChanged: (v) => _ubahNotifikasi(context, v),
                 ),
+              ),
+              _barisPengaturan(
+                Icons.confirmation_number_outlined,
+                'Voucher Saya',
+                () => bukaVoucherSaya(context),
               ),
               _barisPengaturan(
                 Icons.person_outline_rounded,
@@ -645,64 +595,4 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
       ),
     );
   }
-}
-
-// _KartuVoucher: kartu 200×76 radius 18, latar tint, border putus-putus caramel
-class _KartuVoucher extends StatelessWidget {
-  final Voucher v;
-  const _KartuVoucher(this.v);
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      foregroundPainter: _DashedBorderPainter(),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.tint,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(v.kode, style: ts(14, 800, color: AppColors.primary)),
-            Text(
-              v.info,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: ts(12, 500, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// _DashedBorderPainter: border 1.5 putus-putus caramel dengan radius 18
-class _DashedBorderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.caramel
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-          const Radius.circular(18),
-        ),
-      );
-    for (final metric in path.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 9) {
-        canvas.drawPath(metric.extractPath(d, d + 5), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
