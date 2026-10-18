@@ -13,8 +13,13 @@ import 'screens/orders_page.dart';
 import 'theme/app_theme.dart';
 import 'widgets/common.dart';
 
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'services/notif_pesanan.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
     MultiProvider(
@@ -38,13 +43,12 @@ class MainApp extends StatelessWidget {
       title: 'KopiKita',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      // Splash tampil minimal 2 detik, lalu AuthGate pilih Login / Beranda.
+      scaffoldMessengerKey: NotifPesanan.messengerKey, // ← tambah ini
       home: FutureBuilder(
         future: _splashSelesai,
-        builder: (context, snap) =>
-            snap.connectionState == ConnectionState.done
-                ? const AuthGate()
-                : const SplashScreen(),
+        builder: (context, snap) => snap.connectionState == ConnectionState.done
+            ? const AuthGate()
+            : const SplashScreen(),
       ),
     );
   }
@@ -79,13 +83,12 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
-        // Status login belum diketahui → tetap tampilkan splash.
         if (snap.connectionState == ConnectionState.waiting) {
           return const SplashScreen();
         }
         if (snap.hasData) {
-          // Reset tab ke Beranda setiap transisi login (sekali per transisi).
-          // addPostFrameCallback: aman dipanggil dari dalam build.
+          // Pasang listener global notifikasi pesanan (idempoten)
+          NotifPesanan.pasang();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (NavigationPage.tab.value != NavigationPage.tabBeranda) {
               NavigationPage.tab.value = NavigationPage.tabBeranda;
@@ -93,6 +96,8 @@ class AuthGate extends StatelessWidget {
           });
           return const NavigationPage();
         }
+        // Belum login → lepas listener
+        NotifPesanan.lepas();
         return const LoginPage();
       },
     );
@@ -143,10 +148,7 @@ class NavigationPage extends StatelessWidget {
           // tetapi tetap menjaga state semua halaman di dalamnya
           body: IndexedStack(index: index, children: _halaman),
           // AppBottomBar: strip keranjang + navbar (lib/widgets/common.dart)
-          bottomNavigationBar: AppBottomBar(
-            index: index,
-            onTap: _pindahTab,
-          ),
+          bottomNavigationBar: AppBottomBar(index: index, onTap: _pindahTab),
         );
       },
     );

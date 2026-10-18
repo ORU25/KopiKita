@@ -4,9 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-// ponytail: dummy_data hanya dipakai untuk contohPesananAktif (jembatan sementara).
-// Hapus import ini bersama pesananAktif setelah PR stream Pesanan Aktif (P5) di-merge.
-import '../data/dummy_data.dart' show contohPesananAktif;
 import '../models/cart_item.dart';
 import '../models/pesanan.dart';
 import '../models/voucher.dart';
@@ -35,10 +32,6 @@ class CartProvider extends ChangeNotifier {
   Voucher? _voucher;
   // STATE: tarif pajak pecahan (0.10 = 10%), dibaca dari config/menu
   double tarifPajak = 0.10;
-  // STATE: pesanan aktif terakhir (ditampilkan di tab Pesanan)
-  // ponytail: JEMBATAN SEMENTARA. Hapus (beserta contohPesananAktif) setelah
-  // P5 merge Pesanan Aktif berbasis stream Firestore (ketergantungan #3).
-  Pesanan? pesananAktif = contohPesananAktif;
 
   // STATE: true selama checkout berjalan (cegah tekan dua kali)
   bool _memproses = false;
@@ -178,7 +171,6 @@ class CartProvider extends ChangeNotifier {
       final orderRef = db.collection('orders').doc();
       final hariIni = _kodeTanggal(DateTime.now());
 
-      // Salinan nilai saat tombol ditekan (agar konsisten walau keranjang berubah)
       final itemsPesan = List<CartItem>.of(_items);
       final sub = subtotal, dis = diskon, paj = pajak, tot = total;
       final kodeVoucher = voucher;
@@ -188,81 +180,79 @@ class CartProvider extends ChangeNotifier {
           if (i.productId.isNotEmpty) i.productId,
       };
 
-      Pesanan? dibuat;
-      await db.runTransaction<void>((tx) async {
-        // --- 1. SEMUA BACA DULU (aturan Firestore transaction) ---
-        for (final id in idProduk) {
-          final snap = await tx.get(db.doc('products/$id'));
-          if (!snap.exists) {
-            throw const CheckoutException(
-                'Ada menu di keranjang yang sudah tidak tersedia.');
-          }
-          if (snap.data()?['habis'] == true) {
-            throw CheckoutException(
-                '${snap.data()?['nama'] ?? 'Salah satu menu'} sedang habis. Hapus dari keranjang dulu.');
-          }
-        }
-        // Voucher dicek ulang ke server (bisa saja baru dinonaktifkan admin)
-        if (kodeVoucher != null) {
-          final vs = await tx.get(db.doc('vouchers/$kodeVoucher'));
-          final d = vs.data();
-          final alasan = (!vs.exists || d == null)
-              ? 'Voucher tidak ditemukan.'
-              : Voucher.fromMap(vs.id, d).alasanTidakBerlaku(sub);
-          if (alasan != null) {
-            throw CheckoutException(
-                'Voucher $kodeVoucher tidak bisa dipakai: $alasan Lepas voucher lalu coba lagi.');
-          }
-        }
-        final c = (await tx.get(counterRef)).data();
+      await db
+          .runTransaction<void>((tx) async {
+            for (final id in idProduk) {
+              final snap = await tx.get(db.doc('products/$id'));
+              if (!snap.exists) {
+                throw const CheckoutException(
+                  'Ada menu di keranjang yang sudah tidak tersedia.',
+                );
+              }
+              if (snap.data()?['habis'] == true) {
+                throw CheckoutException(
+                  '${snap.data()?['nama'] ?? 'Salah satu menu'} sedang habis. Hapus dari keranjang dulu.',
+                );
+              }
+            }
+            if (kodeVoucher != null) {
+              final vs = await tx.get(db.doc('vouchers/$kodeVoucher'));
+              final d = vs.data();
+              final alasan = (!vs.exists || d == null)
+                  ? 'Voucher tidak ditemukan.'
+                  : Voucher.fromMap(vs.id, d).alasanTidakBerlaku(sub);
+              if (alasan != null) {
+                throw CheckoutException(
+                  'Voucher $kodeVoucher tidak bisa dipakai: $alasan Lepas voucher lalu coba lagi.',
+                );
+              }
+            }
+            final c = (await tx.get(counterRef)).data();
 
-        // --- 2. HITUNG NOMOR ANTREAN (reset bila beda tanggal) ---
-        final nomorBaru =
-            c?['tanggal'] == hariIni ? ((c?['nomor'] ?? 0) as int) + 1 : 1;
-        final kode = 'A-${nomorBaru.toString().padLeft(3, '0')}';
+            final nomorBaru = c?['tanggal'] == hariIni
+                ? ((c?['nomor'] ?? 0) as int) + 1
+                : 1;
+            final kode = 'A-${nomorBaru.toString().padLeft(3, '0')}';
 
-        final pesanan = Pesanan(
-          id: orderRef.id,
-          uid: user.uid,
-          nomor: kode,
-          makanDiTempat: dineIn,
-          nomorMeja: 0, // wajib di konstruktor Pesanan, TIDAK ditulis ke orders (lihat bawah)
-          status: 0, // menunggu_bayar
-          items: itemsPesan,
-          subtotal: sub,
-          diskon: dis,
-          pajak: paj,
-          total: tot,
-          voucher: kodeVoucher,
-        );
+            final pesanan = Pesanan(
+              id: orderRef.id,
+              uid: user.uid,
+              nomor: kode,
+              makanDiTempat: dineIn,
+              nomorMeja: 0,
+              status: 0, // menunggu_bayar
+              items: itemsPesan,
+              subtotal: sub,
+              diskon: dis,
+              pajak: paj,
+              total: tot,
+              voucher: kodeVoucher,
+            );
 
-        // --- 3. TULIS ---
-        tx.set(counterRef, {'tanggal': hariIni, 'nomor': nomorBaru});
-        // Fitur nomor meja dihapus: field nomorMeja tidak ikut ditulis ke orders
-        tx.set(orderRef, {
-          ...(pesanan.toMap()..remove('nomorMeja')),
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        dibuat = pesanan;
-      }).timeout(const Duration(seconds: 15));
+            tx.set(counterRef, {'tanggal': hariIni, 'nomor': nomorBaru});
+            tx.set(orderRef, {
+              ...(pesanan.toMap()..remove('nomorMeja')),
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          })
+          .timeout(const Duration(seconds: 15));
 
-      // ponytail: jembatan sementara untuk tab Pesanan versi lama (lihat pesananAktif).
-      pesananAktif = dibuat;
-      _items.clear(); // Kosongkan keranjang
+      _items.clear();
       _voucher = null;
     } on CheckoutException {
       rethrow;
     } on TimeoutException {
       throw const CheckoutException(
-          'Koneksi lambat atau terputus. Periksa internet lalu coba lagi.');
+        'Koneksi lambat atau terputus. Periksa internet lalu coba lagi.',
+      );
     } on FirebaseException catch (e) {
       throw CheckoutException(
         e.code == 'unavailable'
             ? 'Tidak ada koneksi internet. Coba lagi nanti.'
             : e.code == 'permission-denied'
-                ? 'Tidak punya izin membuat pesanan (cek Firestore rules).'
-                : 'Gagal membuat pesanan (${e.code}).',
+            ? 'Tidak punya izin membuat pesanan (cek Firestore rules).'
+            : 'Gagal membuat pesanan (${e.code}).',
       );
     } finally {
       _memproses = false;

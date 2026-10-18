@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/dummy_data.dart';
 import '../providers/cart_provider.dart';
 import '../screens/cart_page.dart';
 import '../theme/app_theme.dart';
@@ -54,7 +53,9 @@ class PrimaryButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           disabledBackgroundColor: AppColors.disabled,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: Text(label, style: ts(15, 700, color: Colors.white)),
       ),
@@ -123,7 +124,11 @@ class AddButton extends StatelessWidget {
                 color: onTap == null ? AppColors.disabled : AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -152,9 +157,8 @@ class HabisBadge extends StatelessWidget {
 }
 
 // ProductThumb: thumbnail produk radius 10.
-// PERBAIKAN FINAL FLUTTER WEB:
-// Menggunakan imageBuilder pada CachedNetworkImage. Ini memastikan gambar
-// digambar menggunakan DecorationImage (sama seperti aset lokal) sehingga
+// Foto dari Cloudinary (`url`); bila kosong → placeholder ikon.
+// PERBAIKAN FINAL FLUTTER WEB: memakai imageBuilder + DecorationImage agar
 // CanvasKit tidak merendernya sebagai kotak hitam saat kembali dari navigasi.
 class ProductThumb extends StatelessWidget {
   final double size;
@@ -174,7 +178,7 @@ class ProductThumb extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: AppColors.tint,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
@@ -189,65 +193,36 @@ class ProductThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final foto = url;
 
-    // Jalur 1: URL Cloudinary (Gambar dari Web Admin)
-    if (foto != null && foto.isNotEmpty) {
-      return RepaintBoundary(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
+    if (foto == null || foto.isEmpty) return _placeholder();
+
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: size,
+          height: size,
+          color: Colors.transparent,
+          child: CachedNetworkImage(
+            key: ValueKey(foto),
+            imageUrl: foto,
             width: size,
             height: size,
-            color: Colors.transparent, // Latar cadangan
-            child: CachedNetworkImage(
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholder: (_, _) => _placeholder(),
+            errorWidget: (_, _, _) => _placeholder(),
+            imageBuilder: (context, imageProvider) => Container(
               key: ValueKey(foto),
-              imageUrl: foto,
               width: size,
               height: size,
-              // Matikan transisi agar tidak memicu bug layer transparan di Web
-              fadeInDuration: Duration.zero,
-              fadeOutDuration: Duration.zero,
-              placeholder: (_, _) => _placeholder(),
-              errorWidget: (_, _, _) => _placeholder(),
-              // imageBuilder: Menggambar gambar dengan DecorationImage.
-              // Sangat stabil di Flutter Web (tidak jadi hitam).
-              imageBuilder: (context, imageProvider) => Container(
-                key: ValueKey(foto),
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: imageProvider,
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              decoration: BoxDecoration(
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
               ),
             ),
           ),
         ),
-      );
-    }
-
-    // Jalur 2: Asset lokal (Data Dummy)
-    final gambar = gambarMenu[nama];
-    if (gambar != null) {
-      return RepaintBoundary(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: AppColors.tint,
-            borderRadius: BorderRadius.circular(10),
-            image: DecorationImage(
-              image: AssetImage(gambar),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Jalur 3: Tanpa gambar
-    return _placeholder();
+      ),
+    );
   }
 }
 
@@ -296,7 +271,9 @@ class SegmentedPill extends StatelessWidget {
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: i == selected ? selectedBackground : Colors.transparent,
+                    color: i == selected
+                        ? selectedBackground
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: i == selected ? AppShadows.chip : null,
                   ),
@@ -358,7 +335,10 @@ class AppBottomBar extends StatelessWidget {
                 ),
                 NavigationDestination(
                   icon: _ikonNav(Icons.receipt_long_outlined),
-                  selectedIcon: _ikonNav(Icons.receipt_long_rounded, aktif: true),
+                  selectedIcon: _ikonNav(
+                    Icons.receipt_long_rounded,
+                    aktif: true,
+                  ),
                   label: 'Pesanan',
                 ),
                 NavigationDestination(
@@ -412,8 +392,11 @@ class _CartStrip extends StatelessWidget {
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.shopping_cart_outlined,
-                    size: 20, color: AppColors.primary),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -427,10 +410,15 @@ class _CartStrip extends StatelessWidget {
                   ),
                 ),
               ),
-              Text('Lihat keranjang',
-                  style: ts(13, 700, color: AppColors.primary)),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 20, color: AppColors.primary),
+              Text(
+                'Lihat keranjang',
+                style: ts(13, 700, color: AppColors.primary),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.primary,
+              ),
             ],
           ),
         ),
