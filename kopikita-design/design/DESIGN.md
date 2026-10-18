@@ -23,11 +23,13 @@ Acuan UI untuk aplikasi Android pelanggan KopiKita (Flutter). Dokumen ini adalah
 | `ink` | `#2B1810` | Teks utama; latar banner bila gambar belum termuat |
 | `textSecondary` | `#5A4436` | Label sekunder (aksi cepat, info voucher, chip tidak terpilih) |
 | `muted` | `#7A6355` | Teks deskripsi/meta, ikon tidak aktif, tab tidak aktif |
-| `disabled` | `#B9A89B` | Tombol + untuk menu habis, border checkbox kosong |
+| `disabled` | `#B9A89B` | Tombol + untuk menu habis |
 | `bg` | `#FFFFFF` | Latar halaman (putih); latar sheet Kustomisasi; input fokus |
-| `surface` | `#FCF9F5` | Card, sheet (kecuali sheet Kustomisasi = `bg`), navbar, tombol bulat (cokelat muda) |
-| `fill` | `#F3EADF` | Isi input, segmented control, chip tidak terpilih, stepper jumlah |
-| `tint` | `#F1E4D4` | Thumbnail placeholder, avatar, segmented terpilih di Keranjang |
+| `surface` | `#FCF9F5` | Card, navbar, tombol bulat, elemen cokelat muda di dalam bottom sheet (cokelat muda). Latar sheet sendiri = `bg` |
+| `fill` | `#F3EADF` | Isi input (di luar sheet, mis. Login), chip tidak terpilih di luar sheet |
+| `tint` | `#F1E4D4` | Thumbnail placeholder, avatar (di luar sheet) |
+
+**Aturan bottom sheet:** semua sheet berlatar `bg` (putih, sama dengan sheet Kustomisasi), radius atas 28, `useSafeArea: true`, diawali `SheetHandle()` (`widgets/common.dart`, 40×4 `pending`). Semua elemen cokelat muda **di dalam sheet** (input `fillColor`, kartu voucher, avatar placeholder; chip & stepper Kustomisasi memakai gaya outline, lihat "Chip pilihan") memakai `surface` — sama dengan chip kategori & kartu Rekomendasi di Menu. Loading di dalam sheet = `SizedBox(height: MediaQuery.sizeOf(context).height * 0.5, child: LoadingView())`.
 | `cartStrip` | `#F6ECE0` | Latar strip keranjang di atas navbar |
 | `cream` | `#FBEFE0` | Teks/elemen terang di atas latar cokelat tua |
 | `divider` | `#EDE3D8` | Garis pemisah umum, border bawah tab |
@@ -37,7 +39,7 @@ Acuan UI untuk aplikasi Android pelanggan KopiKita (Flutter). Dokumen ini adalah
 | `danger` | `#B3261E` | Aksi berbahaya (baris Keluar di Akun) |
 | `pending` | `#D9CABB` | Titik status belum tercapai, dot slider tidak aktif, handle bottom sheet |
 
-**Catatan "putih":** di bagian 2–3, latar card/sheet/navbar/tombol bulat yang disebut "putih" memakai token `surface` (`#FCF9F5`), bukan `#FFFFFF`. Sheet Kustomisasi berlatar `bg` (`#FFFFFF`), item terpilih `primary` teks putih; input fokus memakai `bg`. Teks/ikon putih di atas `primary` tetap `#FFFFFF`.
+**Catatan "putih":** di bagian 2–3, latar card/navbar/tombol bulat yang disebut "putih" memakai token `surface` (`#FCF9F5`), bukan `#FFFFFF`. Semua bottom sheet berlatar `bg` (`#FFFFFF`), item terpilih `primary` teks putih; input fokus memakai `bg`. Teks/ikon putih di atas `primary` tetap `#FFFFFF`.
 
 Thumbnail produk **sementara** memakai foto dari `assets/images/` (peta `gambarMenu` di `lib/data/dummy_data.dart`, dicari berdasarkan nama produk; `BoxFit.cover`, radius 10). Produk tanpa foto memakai placeholder: latar `tint #F1E4D4`, ikon `primary #6B3216`. Riwayat pesanan memakai foto item pertama di ringkasan. Nanti diganti foto produk dari Cloudinary dengan radius yang sama.
 
@@ -121,10 +123,27 @@ Putih, radius 24, padding 16 (Login 22 20 20), bayangan `float`, posisi `top: 22
 Wadah padding 4, radius 14–16, latar putih (header Menu, Keranjang). Item tinggi 36–40, radius 10–12, 13/700. Item terpilih selalu diberi bayangan `chip` agar terpisah dari wadah.
 - Menu: terpilih = latar `primary`, teks putih.
 - (Kustomisasi tidak lagi memakai segmented; Ukuran & Suhu memakai chip pilihan berikon.)
-- Keranjang: terpilih = latar `tint`, teks `primary`.
+- Keranjang (`_KartuMetode`): terpilih = latar `surface` + border 1.5 `primary` + teks `primary`; tidak terpilih = latar `bg` + border 1 `outline`. Elemen cokelat muda lain di Keranjang juga `surface` (bukan `tint`): badge jumlah item di header, kartu voucher (lingkaran ikon di dalamnya `bg`), dan lingkaran ikon catatan pembayaran.
 
 ### Chip pilihan (Kustomisasi)
-Tinggi 44, radius 14, sama lebar (Expanded), ikon opsional di kiri teks. Terpilih: latar `primary` (lebih gelap), teks/ikon putih, tanpa border. Tidak terpilih: latar `fill`, teks `textSecondary`.
+Gaya **outline tipis (minimalis)**: tinggi 44, radius 14, sama lebar (Expanded), **tanpa ikon**. Terpilih: latar `surface` + border 1.5 `primary`, teks 13/700 `primary` (sama dengan kartu metode pesanan di Keranjang). Tidak terpilih: latar `bg` + border 1 `outline`, teks 13/600 `textSecondary`. Animasi 150 ms.
+
+```dart
+AnimatedContainer(
+  duration: const Duration(milliseconds: 150),
+  height: 44,
+  decoration: BoxDecoration(
+    color: aktif ? AppColors.surface : AppColors.bg,
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(
+      color: aktif ? AppColors.primary : AppColors.outline,
+      width: aktif ? 1.5 : 1,
+    ),
+  ),
+  child: Text(teks, style: ts(13, aktif ? 700 : 600,
+      color: aktif ? AppColors.primary : AppColors.textSecondary)),
+)
+```
 
 ### Baris datar
 Padding vertikal 14, `border-bottom: 1px` (`dividerList` / `divider`), tanpa card. Dipakai untuk daftar menu, riwayat pesanan, pengaturan akun.
@@ -210,7 +229,7 @@ AuthScaffold(
   1. Dua aksi besar sama lebar (`Expanded`): **Ambil Sendiri** (`ikon-ambil-sendiri.png`) dan **Makan di Tempat** (`ikon-makan-di-tempat.png`). Tiap `_AksiBesar`: `InkWell` radius 16, padding vertikal 4, `SizedBox(76×56)` dengan gambar tinggi 48, `SizedBox(8)`, label 14/700. Ketuk → `cart.setMakanDiTempat(bool)` lalu `NavigationPage.tab = tabMenu`.
   2. Garis 1px `dividerSoft`.
   3. **Empat aksi cepat** (`spaceAround`, tiap `_AksiCepat`: lebar 72, padding vertikal 6, ikon garis 24 `primary`, gap 8, label 12/500 `textSecondary` line-height 1.15 maks 2 baris):
-     - **Voucher** (`confirmation_number_outlined`) → tab **Akun** (daftar voucher),
+     - **Voucher** (`confirmation_number_outlined`) → `bukaVoucherSaya(context)` (sheet Voucher Saya, 3.5b — sama dengan baris Voucher Saya di Akun),
      - **Favorit** (`favorite_border_rounded`) → push `FavoritePage`,
      - **Menu** (`restaurant_menu_rounded`) → tab **Menu**,
      - **Pesan Lagi** (`receipt_long_rounded`) → `OrdersPage.mintaRiwayat()` lalu tab **Pesanan** (langsung terbuka di sub-tab Riwayat).
@@ -282,8 +301,9 @@ Bottom sheet untuk menyesuaikan pesanan produk, dibuka melalui `bukaKustomisasi(
 - **Sheet:** Latar putih, radius atas 28, dapat digeser, dan dibatalkan dengan menarik ke bawah atau mengetuk area luar.
 - **Header produk:** Thumbnail 64, nama, deskripsi, dan harga dasar.
 - **Pilihan:** Ukuran Regular/Large, suhu Panas/Es, level gula, level es (jika Es), add-on sesuai produk, serta catatan opsional. Produk makanan hanya memiliki catatan.
+- **Checkbox add-on:** kotak 18 radius 5; tercentang latar `caramel` + centang putih 14, kosong border 1.5 `pending`. **Field catatan barista:** `fillColor: AppColors.surface`.
 - **Konfigurasi:** Harga Large dan add-on dibaca dari `config/menu`, dengan data cadangan dari `dummy_data.dart`. Tampilkan indikator loading saat memuat.
-- **Footer:** Stepper jumlah dan tombol **Tambah · Rp…** yang menampilkan total harga berdasarkan pilihan dan jumlah.
+- **Footer:** Stepper jumlah gaya Keranjang (tombol lingkaran 32 border 1 `outline`, ikon 18 `primary` / `disabled` saat jumlah 1, hit area 44, angka 16/700) dan tombol **Tambah · Rp…** yang menampilkan total harga berdasarkan pilihan dan jumlah.
 - **Proses:** Tombol Tambah menyimpan pesanan melalui `CartProvider.addItem(CartItem(...))`, kemudian menutup sheet. Item dengan kunci sama digabung, sedangkan opsi berbeda menjadi item terpisah.
 - **Tampilan:** Chip pilihan interaktif, jarak konsisten, dan footer tetap di bawah. Konten menyesuaikan posisi keyboard saat catatan diketik.
 
@@ -294,8 +314,8 @@ Halaman untuk memeriksa pesanan, memilih metode pesanan, menerapkan voucher, dan
 - **Header:** Tombol kembali, judul Keranjang, dan jumlah item.
 - **Metode pesanan:** Ambil Sendiri atau Makan di Tempat, dengan Ambil Sendiri sebagai pilihan awal.
 - **Daftar pesanan:** Thumbnail, nama produk, opsi, harga, dan stepper jumlah. Tombol minus pada jumlah 1 berubah menjadi tombol hapus.
-- **Voucher:** Pengguna dapat memilih, mengganti, atau melepas voucher. Voucher divalidasi berdasarkan status aktif, masa berlaku, dan minimal belanja.
-- **Ringkasan pembayaran:** Menampilkan subtotal, diskon, pajak dari `config/menu.pajak` (default 10%), dan total. Diskon tidak melebihi subtotal.
+- **Voucher:** Pengguna dapat memilih, mengganti, atau melepas voucher. Voucher divalidasi berdasarkan status aktif, masa berlaku, dan minimal belanja. Kartu voucher: latar `surface`, border 1 `outline`, radius 18 (seperti kartu metode pesanan).
+- **Ringkasan pembayaran:** Sama seperti bagian Pesananmu — judul "Ringkasan pembayaran" 16/800 di luar card (jarak atas 24, bawah 10, tanpa ikon), card latar `surface`, radius 20, padding 16, bayangan `card`. Menampilkan subtotal, diskon, pajak dari `config/menu.pajak` (default 10%), dan total. Diskon tidak melebihi subtotal.
 - **Pembayaran:** Menampilkan informasi pembayaran tunai atau QRIS di kasir serta tombol **Pesan sekarang**.
 - **Proses pemesanan:** Dalam satu transaksi Firestore, sistem memvalidasi login, nomor antrean, ketersediaan produk, dan voucher, kemudian menyimpan pesanan berstatus `menunggu_bayar`. Setelah berhasil, keranjang dikosongkan dan pengguna diarahkan ke Pesanan → Aktif.
 - **Keadaan kosong dan error:** Jika keranjang kosong, tampilkan tombol Lihat menu. Jika pemesanan gagal, keranjang tetap utuh dan pesan kesalahan ditampilkan melalui SnackBar.
@@ -304,6 +324,7 @@ Halaman untuk memeriksa pesanan, memilih metode pesanan, menerapkan voucher, dan
 
 Bottom sheet untuk memilih voucher atau memasukkan kode secara manual melalui `bukaGantiVoucher(context)`.
 
+- **Gaya sheet:** Mengikuti aturan bottom sheet (bagian 1): latar `bg`, `SheetHandle`, input `fillColor: surface`, kartu voucher `surface`, loading setengah layar.
 - **Input kode:** Mendukung huruf kapital dan tombol Pakai.
 - **Daftar voucher:** Menampilkan voucher milik pengguna, termasuk opsi Tanpa voucher.
 - **Validasi:** Voucher yang tidak aktif, kedaluwarsa, atau tidak memenuhi minimal belanja tidak dapat dipilih.
@@ -313,9 +334,9 @@ Bottom sheet untuk memilih voucher atau memasukkan kode secara manual melalui `b
 
 Bottom sheet daftar voucher milik pengguna, dibuka dari baris **Voucher Saya** di Akun melalui `bukaVoucherSaya(context)`. Tanpa banner promosi.
 
-- **Gaya sheet:** Sama dengan 3.5a — `showModalBottomSheet` (`isScrollControlled`, `useSafeArea`), latar `bg`, radius atas 28, handle 40×4 `pending`, judul "Voucher Saya" 18/800.
+- **Gaya sheet:** Sama dengan 3.5a — `showModalBottomSheet` (`isScrollControlled`, `useSafeArea`), latar `bg`, radius atas 28, `SheetHandle`, judul "Voucher Saya" 18/800. Saat memuat → `LoadingView` setinggi setengah layar.
 - **Daftar:** Bagian "Bisa digunakan" lalu "Voucher lainnya" (judul 15/700 + jumlah 12/500 `muted`), kartu `KartuVoucherItem`.
-- **Kartu voucher:** Memuat kode, nominal diskon, minimal belanja, masa berlaku, dan alasan ketidakberlakuan.
+- **Kartu voucher:** Latar `surface`. Memuat kode, nominal diskon, minimal belanja, masa berlaku, dan alasan ketidakberlakuan.
 - **Interaksi:** Ketuk voucher yang berlaku → kode disalin, sheet ditutup, lalu SnackBar "Kode … berhasil disalin". Voucher tidak berlaku tidak bisa diketuk (ikon gembok).
 - **Keadaan:** Menangani loading, error (tombol Coba lagi), dan kondisi belum memiliki voucher.
 
@@ -347,7 +368,7 @@ _barisPengaturan(Icons.confirmation_number_outlined, 'Voucher Saya',
 - **Avatar profil** di card: bulat **48**, `ClipOval`. Bila `users/{uid}.fotoUrl` terisi → `Image.network` (`BoxFit.cover`); bila kosong atau gagal dimuat → latar `tint` dengan inisial nama 16/800 `primary` (`errorBuilder` menangani kasus jaringan mati). Saat pertama kali belum ada foto, tampilan persis seperti sebelumnya (inisial).
 - **Baris pengaturan datar** (`_barisPengaturan`: 52 tinggi, **ikon kiri 22** + jarak 12, label 14/600, chevron muted di kanan, garis bawah `divider`), urutan dari atas:
   1. **Notifikasi pesanan** (ikon `notifications_none_rounded`) — **toggle langsung di baris**, bukan halaman tersendiri: `Switch` di kanan (thumb aktif `primary`) menggantikan chevron; ketuk baris = membalik toggle. Nilai dibaca dari `users/{uid}.notifikasi` lewat `UserRepo.stream()` yang sama dengan card profil; ubah → `UserRepo.update({'notifikasi': v})` (cache lokal Firestore membuat switch langsung berubah); gagal → SnackBar `Gagal menyimpan: {e}`. (`NotificationPage` tetap ada, hanya dibuka dari tombol lonceng di Beranda.)
-  2. **Edit profil** (ikon `person_outline_rounded`) — membuka `showModalBottomSheet` (radius atas 24, latar `surface`, padding 20 + naik setinggi keyboard lewat widget `_NaikKeyboard`). **Animasi keyboard harus halus**: `_NaikKeyboard` adalah satu-satunya widget yang membaca `MediaQuery.viewInsetsOf(context)` sehingga hanya dia yang dibangun ulang tiap frame (isi sheet tidak), dan memakai `AnimatedPadding` (120 ms, `easeOut`) untuk menghaluskan inset keyboard yang datang patah-patah. Jangan memakai `autofocus` di sheet — keyboard dan animasi sheet naik bersamaan membuat patah-patah. Isi sheet, dari atas:
+  2. **Edit profil** (ikon `person_outline_rounded`) — membuka `showModalBottomSheet` **langsung** (radius atas 28, latar `bg`, `useSafeArea`, `SheetHandle` + padding `fromLTRB(20, 12, 20, 20)` + naik setinggi keyboard lewat widget `_NaikKeyboard`). Data prefill dibaca lewat `final dataF = UserRepo.ambil()` yang dibuat **sekali** sebelum sheet dibuka (agar tidak terulang saat rebuild keyboard), lalu `FutureBuilder(future: dataF)`: menunggu → `LoadingView` setinggi setengah layar di dalam `_NaikKeyboard`; selesai/gagal → `_SheetEditProfil` (gagal = data kosong). **Animasi keyboard harus halus**: `_NaikKeyboard` adalah satu-satunya widget yang membaca `MediaQuery.viewInsetsOf(context)` sehingga hanya dia yang dibangun ulang tiap frame (isi sheet tidak), dan memakai `AnimatedPadding` (120 ms, `easeOut`) untuk menghaluskan inset keyboard yang datang patah-patah. Jangan memakai `autofocus` di sheet — keyboard dan animasi sheet naik bersamaan membuat patah-patah. Isi sheet, dari atas:
 
 ```dart
 class _NaikKeyboard extends StatelessWidget {
@@ -358,17 +379,20 @@ class _NaikKeyboard extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-        child: Padding(padding: const EdgeInsets.all(20), child: child),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SheetHandle(),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 12, 20, 20), child: child),
+        ]),
       );
 }
 ```
      - Judul "Edit profil" 18/800 ls −0.3.
-     - **Avatar besar 84** (`ClipOval`) di tengah, menampilkan urutan prioritas: (a) `Image.memory` bytes yang baru dipilih (`preview` lokal), (b) `Image.network(users/{uid}.fotoUrl)`, (c) latar `tint` + inisial 24/800 `primary`. Di pojok kanan-bawah avatar, **tombol kamera** bulat 32 (latar `primary`, ikon `photo_camera_outlined` 18 putih, `clipBehavior: Clip.none`, posisi `right: -4, bottom: -4`); target sentuh 44×44 (padding implisit). Ketuk → `image_picker` (`maxWidth: 512`, `imageQuality: 85`); batal memilih → tidak ada perubahan state.
-     - Label "Nama" 12/700 `textSecondary`, field nama (52, radius 14, latar `fill`, tanpa autofocus, `textCapitalization: words`). Validasi: nama < 2 karakter ditolak → `errorText` di bawah field "Nama minimal 2 karakter." (hilang saat mengetik).
+     - **Avatar besar 84** (`ClipOval`) di tengah, menampilkan urutan prioritas: (a) `Image.memory` bytes yang baru dipilih (`preview` lokal), (b) `Image.network(users/{uid}.fotoUrl)`, (c) latar `surface` + inisial 24/800 `primary`. Di pojok kanan-bawah avatar, **tombol kamera** bulat 32 (latar `primary`, ikon `photo_camera_outlined` 18 putih, `clipBehavior: Clip.none`, posisi `right: -4, bottom: -4`); target sentuh 44×44 (padding implisit). Ketuk → `image_picker` (`maxWidth: 512`, `imageQuality: 85`); batal memilih → tidak ada perubahan state.
+     - Label "Nama" 12/700 `textSecondary`, field nama (52, radius 14, `fillColor: surface`, tanpa autofocus, `textCapitalization: words`). Validasi: nama < 2 karakter ditolak → `errorText` di bawah field "Nama minimal 2 karakter." (hilang saat mengetik).
      - **Batas foto** (dicek di `_pilihFoto`, setelah kompresi `maxWidth: 512`, `imageQuality: 85`): ekstensi harus `jpg/jpeg/png/webp` → selain itu "Format foto harus JPG, PNG, atau WEBP."; ukuran ≤ 2 MB (`_maxFotoBytes`) → selain itu "Ukuran foto maksimal 2 MB.". Gagal cek → foto tidak diganti, pesan tampil sebagai error umum.
      - Tombol utama **Simpan** (52, radius 16). Bila `_fotoBaru` ada → unggah ke Cloudinary (`CloudinaryAccService.uploadBytes`, folder `foto-profil`, unsigned preset `kopikita_menu`) → dapat `secure_url` → tulis `users/{uid}.fotoUrl`. Selalu tulis `users/{uid}.nama`. SnackBar "Profil diperbarui." setelah sheet ditutup. Gagal unggah/tulis → error umum `Gagal menyimpan: {e}`, sheet tetap terbuka.
      - **Aturan error di bottom sheet**: jangan pakai SnackBar (dirender di Scaffold di belakang sheet → tertutup sheet/keyboard). Error per field → `InputDecoration(errorText: ...)`; error umum → widget `_ErrorUmum` (teks 12/600 `danger`, jarak atas 12) tepat di atas tombol Simpan.
-  3. **Ubah kata sandi** (ikon `lock_outline_rounded`) — bottom sheet `_SheetUbahSandi` dengan gaya **sama dengan Edit profil** (`showModalBottomSheet`, `isScrollControlled: true`, latar `surface`, radius atas 24, padding 20 + `_NaikKeyboard` agar sheet naik halus di atas keyboard): judul "Ubah kata sandi" 18/800 ls −0.3 → jarak 16 → label "Kata sandi lama" 12/700 `textSecondary` + field tersamar (`obscureText`, tanpa autofocus, aksi keyboard *next*) → jarak 14 → label "Kata sandi baru" + field tersamar (placeholder "Minimal 6 karakter", aksi *next*) → jarak 14 → label "Konfirmasi kata sandi baru" + field tersamar (placeholder "Ulangi kata sandi baru", aksi *done* = simpan) → jarak 16 → tombol utama **Simpan** (`PrimaryButton`, teks "Menyimpan..." dan field nonaktif saat proses). Validasi lokal dulu (tanpa memanggil Firebase), tampil sebagai `errorText` di bawah field (hilang saat field diketik): sandi lama kosong → "Wajib diisi."; sandi baru < 6 → "Minimal 6 karakter."; konfirmasi ≠ baru → "Tidak sama dengan kata sandi baru.". Lolos → `AuthService.ubahSandi(lama, baru)` (`reauthenticateWithCredential(EmailAuthProvider.credential(email, lama))` → `updatePassword(baru)`). Sukses → sheet ditutup + SnackBar "Kata sandi berhasil diubah."; `wrong-password`/`invalid-credential` → `errorText` field sandi lama "Kata sandi lama salah." (sheet tetap terbuka); error lain (jaringan, `too-many-requests`) → `_ErrorUmum` dengan pesan `AuthService.pesanError`. Reset lewat email tetap ada di Login ("Lupa kata sandi?").
+  3. **Ubah kata sandi** (ikon `lock_outline_rounded`) — bottom sheet `_SheetUbahSandi` dengan gaya **sama dengan Edit profil** (`showModalBottomSheet`, `isScrollControlled: true`, `useSafeArea`, latar `bg`, radius atas 28, `SheetHandle` + `_NaikKeyboard` agar sheet naik halus di atas keyboard, field `fillColor: surface`): judul "Ubah kata sandi" 18/800 ls −0.3 → jarak 16 → label "Kata sandi lama" 12/700 `textSecondary` + field tersamar (`obscureText`, tanpa autofocus, aksi keyboard *next*) → jarak 14 → label "Kata sandi baru" + field tersamar (placeholder "Minimal 6 karakter", aksi *next*) → jarak 14 → label "Konfirmasi kata sandi baru" + field tersamar (placeholder "Ulangi kata sandi baru", aksi *done* = simpan) → jarak 16 → tombol utama **Simpan** (`PrimaryButton`, teks "Menyimpan..." dan field nonaktif saat proses). Validasi lokal dulu (tanpa memanggil Firebase), tampil sebagai `errorText` di bawah field (hilang saat field diketik): sandi lama kosong → "Wajib diisi."; sandi baru < 6 → "Minimal 6 karakter."; konfirmasi ≠ baru → "Tidak sama dengan kata sandi baru.". Lolos → `AuthService.ubahSandi(lama, baru)` (`reauthenticateWithCredential(EmailAuthProvider.credential(email, lama))` → `updatePassword(baru)`). Sukses → sheet ditutup + SnackBar "Kata sandi berhasil diubah."; `wrong-password`/`invalid-credential` → `errorText` field sandi lama "Kata sandi lama salah." (sheet tetap terbuka); error lain (jaringan, `too-many-requests`) → `_ErrorUmum` dengan pesan `AuthService.pesanError`. Reset lewat email tetap ada di Login ("Lupa kata sandi?").
   4. **Keluar** (ikon `logout_rounded`) — **dipisah** jarak 24 dari baris di atasnya, ikon + label warna `danger`, tanpa chevron, tanpa garis bawah. Ikon logout berukuran **19** (bukan 22) di dalam kotak lebar 22 yang sama: glyph `logout` lebih lebar (x 2–22 dari grid 24, ikon lain 4–20), jadi dikecilkan agar tepi kirinya sejajar ikon di atasnya; label tetap mulai di x yang sama. `AuthService.keluar()` (hanya `signOut`, tanpa navigasi manual); AuthGate otomatis kembali ke `LoginPage`.
 - **Field Firestore baru:** `users/{uid}.fotoUrl: string` (opsional, kosong/default `""`). URL `https://res.cloudinary.com/...`. Karena ini penambahan skema, **wajib disetujui P1** dan dicatat di kontrak `PEMBAGIAN_TUGAS.md` sebelum merge.
 - Bawah: strip keranjang + navbar (tab Akun aktif).

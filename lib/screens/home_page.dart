@@ -13,6 +13,7 @@ import 'customize_page.dart';
 import 'favorite_page.dart';
 import 'notification_page.dart';
 import 'orders_page.dart';
+import 'promo_page.dart';
 
 // HomePage: layar Beranda (DESIGN.md 3.2)
 // Banner gambar + card melayang (sapaan, metode pesan, aksi cepat) + slider promo
@@ -404,7 +405,7 @@ class _HomePageState extends State<HomePage> {
               _AksiCepat(
                 icon: Icons.confirmation_number_outlined,
                 label: 'Voucher',
-                onTap: () => NavigationPage.tab.value = NavigationPage.tabAkun,
+                onTap: () => bukaVoucherSaya(context),
               ),
               // Favorit: layar daftar favorit milik P3
               _AksiCepat(

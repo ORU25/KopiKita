@@ -138,16 +138,7 @@ class _CustomizePageState extends State<CustomizePage> {
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         children: [
-          // Handle 40×4 pending
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 4),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.pending,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SheetHandle(),
           // Expanded: isi pilihan bisa di-scroll
           Expanded(
             child: ListView(
@@ -221,10 +212,6 @@ class _CustomizePageState extends State<CustomizePage> {
               _ukuran,
               (v) => setState(() => _ukuran = v),
               label: ['Regular', 'Large +${rp(_hargaLarge)}'],
-              ikon: [
-                (Icons.coffee_outlined, 16.0),
-                (Icons.coffee_outlined, 20.0),
-              ],
             ),
           ),
           const SizedBox(height: 14),
@@ -238,11 +225,6 @@ class _CustomizePageState extends State<CustomizePage> {
               p.suhu,
               _suhu,
               (v) => setState(() => _suhu = v),
-              ikon: p.suhu.map((s) {
-                return s == 'Panas'
-                    ? (Icons.local_fire_department_outlined, 18.0)
-                    : (Icons.ac_unit_rounded, 18.0);
-              }).toList(),
             ),
           ),
           const SizedBox(height: 14),
@@ -286,6 +268,7 @@ class _CustomizePageState extends State<CustomizePage> {
         controller: _catatanController,
         style: ts(14, 500),
         decoration: const InputDecoration(
+          fillColor: AppColors.surface,
           hintText: 'Catatan untuk barista (opsional)',
           prefixIcon: Icon(Icons.edit_outlined, size: 20),
           contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -312,7 +295,6 @@ class _CustomizePageState extends State<CustomizePage> {
     String terpilih,
     ValueChanged<String> onChanged, {
     List<String>? label,
-    List<(IconData, double)>? ikon,
   }) {
     return Row(
       children: [
@@ -323,7 +305,6 @@ class _CustomizePageState extends State<CustomizePage> {
               label?[i] ?? opsi[i],
               opsi[i] == terpilih,
               () => onChanged(opsi[i]),
-              ikon: ikon?[i],
             ),
           ),
         ],
@@ -331,14 +312,10 @@ class _CustomizePageState extends State<CustomizePage> {
     );
   }
 
-  // _chip: satu chip pilihan tinggi 44 radius 14, ikon opsional di kiri teks
-  Widget _chip(
-    String teks,
-    bool aktif,
-    VoidCallback onTap, {
-    (IconData, double)? ikon,
-  }) {
-    final warna = aktif ? Colors.white : AppColors.textSecondary;
+  // _chip: chip outline tipis tinggi 44 radius 14.
+  // Terpilih = latar surface + garis 1.5 + teks primary (seperti metode pesanan
+  // di Keranjang); tidak terpilih = latar bg + garis 1 outline.
+  Widget _chip(String teks, bool aktif, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -347,20 +324,19 @@ class _CustomizePageState extends State<CustomizePage> {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: aktif ? AppColors.primary : AppColors.fill,
+          color: aktif ? AppColors.surface : AppColors.bg,
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: aktif ? AppColors.primary : AppColors.outline,
+            width: aktif ? 1.5 : 1,
+          ),
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (ikon != null) ...[
-                Icon(ikon.$1, size: ikon.$2, color: warna),
-                const SizedBox(width: 6),
-              ],
-              Text(teks, style: ts(13, 700, color: warna)),
-            ],
+          child: Text(
+            teks,
+            style: ts(13, aktif ? 700 : 600,
+                color: aktif ? AppColors.primary : AppColors.textSecondary),
           ),
         ),
       ),
@@ -384,11 +360,11 @@ class _CustomizePageState extends State<CustomizePage> {
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: aktif ? AppColors.primary : Colors.transparent,
+                color: aktif ? AppColors.caramel : Colors.transparent,
                 borderRadius: BorderRadius.circular(5),
                 border: aktif
                     ? null
-                    : Border.all(color: AppColors.disabled, width: 1.5),
+                    : Border.all(color: AppColors.pending, width: 1.5),
               ),
               child: aktif
                   ? const Icon(
@@ -402,6 +378,29 @@ class _CustomizePageState extends State<CustomizePage> {
             Expanded(child: Text(nama, style: ts(13, 600))),
             Text('+${rp(harga)}', style: ts(12, 700, color: AppColors.muted)),
           ],
+        ),
+      ),
+    );
+  }
+
+  // _tombolStepper: lingkaran 32 bergaris outline (hit area 44); null = nonaktif
+  Widget _tombolStepper(IconData icon, String tooltip, VoidCallback? onTap) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+      icon: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.outline),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: onTap == null ? AppColors.disabled : AppColors.primary,
         ),
       ),
     );
@@ -421,38 +420,24 @@ class _CustomizePageState extends State<CustomizePage> {
       ),
       child: Row(
         children: [
-          // Stepper jumlah: tinggi 52, radius 16, latar fill
-          Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            decoration: BoxDecoration(
-              color: AppColors.fill,
-              borderRadius: BorderRadius.circular(16),
+          // Stepper jumlah: tombol bulat bergaris seperti di Keranjang
+          _tombolStepper(
+            Icons.remove_rounded,
+            'Kurangi',
+            _jumlah > 1 ? () => setState(() => _jumlah--) : null,
+          ),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$_jumlah',
+              textAlign: TextAlign.center,
+              style: ts(16, 700),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Kurangi',
-                  onPressed: _jumlah > 1
-                      ? () => setState(() => _jumlah--)
-                      : null,
-                  icon: const Icon(Icons.remove_rounded, color: AppColors.ink),
-                ),
-                SizedBox(
-                  width: 24,
-                  child: Text(
-                    '$_jumlah',
-                    textAlign: TextAlign.center,
-                    style: ts(16, 700),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Tambah jumlah',
-                  onPressed: () => setState(() => _jumlah++),
-                  icon: const Icon(Icons.add_rounded, color: AppColors.ink),
-                ),
-              ],
-            ),
+          ),
+          _tombolStepper(
+            Icons.add_rounded,
+            'Tambah jumlah',
+            () => setState(() => _jumlah++),
           ),
           const SizedBox(width: 12),
           // Tombol utama: harga = total pilihan × jumlah

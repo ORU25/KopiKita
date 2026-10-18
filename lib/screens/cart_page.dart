@@ -73,7 +73,9 @@ class _CartPageState extends State<CartPage> {
               _kartuItem(cart),
               const SizedBox(height: 16),
               _kartuVoucher(cart),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+              Text('Ringkasan pembayaran', style: ts(16, 800)),
+              const SizedBox(height: 10),
               _ringkasan(cart),
               const SizedBox(height: 14),
               _catatanBayar(),
@@ -101,7 +103,7 @@ class _CartPageState extends State<CartPage> {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: AppColors.tint,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -289,7 +291,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // ---------- VOUCHER ----------
-  // Kartu tint: "Pakai voucher" / "KODE diterapkan · Hemat Rp…" + Ganti.
+  // Kartu surface: "Pakai voucher" / "KODE diterapkan · Hemat Rp…" + Ganti.
   // Voucher tak lagi memenuhi syarat → "KODE belum berlaku" + alasan.
   Widget _kartuVoucher(CartProvider cart) {
     final alasan = cart.alasanVoucher;
@@ -305,8 +307,12 @@ class _CartPageState extends State<CartPage> {
         : alasan ?? 'Hemat ${rp(cart.diskon)}';
 
     return Material(
-      color: AppColors.tint,
-      borderRadius: BorderRadius.circular(18),
+      color: AppColors.surface,
+      // Border seperti kartu metode pesanan
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.outline),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => bukaGantiVoucher(context),
@@ -319,7 +325,7 @@ class _CartPageState extends State<CartPage> {
                 width: 40,
                 height: 40,
                 decoration: const BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.bg,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.sell_outlined,
@@ -360,6 +366,7 @@ class _CartPageState extends State<CartPage> {
   Widget _ringkasan(CartProvider cart) {
     return Container(
       padding: const EdgeInsets.all(16),
+      // Card seperti "Pesananmu": judul di luar, surface + bayangan card
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -367,15 +374,6 @@ class _CartPageState extends State<CartPage> {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long_outlined,
-                  size: 20, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text('Ringkasan pembayaran', style: ts(16, 800)),
-            ],
-          ),
-          const SizedBox(height: 12),
           _barisRingkasan('Subtotal', rp(cart.subtotal)),
           if (cart.diskon > 0)
             _barisRingkasan('Diskon', '−${rp(cart.diskon)}',
@@ -408,7 +406,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  // _catatanBayar: ikon tint 36 + keterangan pembayaran
+  // _catatanBayar: ikon surface 36 + keterangan pembayaran
   Widget _catatanBayar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -418,7 +416,7 @@ class _CartPageState extends State<CartPage> {
             width: 36,
             height: 36,
             decoration: const BoxDecoration(
-              color: AppColors.tint,
+              color: AppColors.surface,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.payments_outlined,
@@ -471,7 +469,7 @@ class _CartPageState extends State<CartPage> {
 }
 
 // _KartuMetode: pilihan metode pesanan (ilustrasi 48 · judul · keterangan).
-// Terpilih: latar tint + border 1.5 primary + centang.
+// Terpilih: latar surface + border 1.5 primary + centang.
 class _KartuMetode extends StatelessWidget {
   final String label;
   final String sub;
@@ -499,7 +497,7 @@ class _KartuMetode extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
           decoration: BoxDecoration(
-            color: aktif ? AppColors.tint : AppColors.surface,
+            color: aktif ? AppColors.surface : AppColors.bg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: aktif ? AppColors.primary : AppColors.outline,

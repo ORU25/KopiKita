@@ -8,6 +8,26 @@ import '../providers/cart_provider.dart';
 import '../screens/cart_page.dart';
 import '../theme/app_theme.dart';
 
+// SheetHandle: garis pegangan 40×4 di atas setiap bottom sheet
+class SheetHandle extends StatelessWidget {
+  const SheetHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 10, bottom: 4),
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.pending,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
 // segeraHadir: menampilkan SnackBar untuk fitur yang belum didesain
 void segeraHadir(BuildContext context, String fitur) {
   ScaffoldMessenger.of(context)

@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/state_views.dart';
 import 'promo_page.dart';
 
 class AccountPage extends StatelessWidget {
@@ -17,21 +18,36 @@ class AccountPage extends StatelessWidget {
   Future<void> _keluar() => AuthService.keluar();
 
   Future<void> _sheetEditProfil(BuildContext context) async {
-    final data = await UserRepo.ambil();
-    final namaAwal = UserRepo.namaDari(data);
-    final fotoAwal = (data?['fotoUrl'] as String?) ?? '';
+    // Future dibuat sekali di luar builder agar tidak terulang saat sheet
+    // di-rebuild (mis. keyboard muncul) dan isi form tidak ter-reset.
+    final dataF = UserRepo.ambil();
 
-    if (!context.mounted) return;
     final simpan = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      useSafeArea: true,
+      backgroundColor: AppColors.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => _SheetEditProfil(
-        namaAwal: namaAwal,
-        fotoAwal: fotoAwal,
+      builder: (ctx) => FutureBuilder(
+        future: dataF,
+        builder: (ctx, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return _NaikKeyboard(
+              child: SizedBox(
+                height: MediaQuery.sizeOf(ctx).height * 0.5,
+                child: const LoadingView(),
+              ),
+            );
+          }
+          // Gagal memuat → data dianggap kosong (form tetap bisa diisi)
+          final data = snap.data;
+          return _SheetEditProfil(
+            namaAwal: UserRepo.namaDari(data),
+            fotoAwal: (data?['fotoUrl'] as String?) ?? '',
+          );
+        },
       ),
     );
 
@@ -48,9 +64,10 @@ class AccountPage extends StatelessWidget {
     final simpan = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      useSafeArea: true,
+      backgroundColor: AppColors.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => const _SheetUbahSandi(),
     );
@@ -154,8 +171,6 @@ class AccountPage extends StatelessWidget {
                 'Ubah kata sandi',
                 () => _sheetUbahSandi(context),
               ),
-              // Keluar dipisah jarak 24 + warna danger, tanpa chevron.
-              const SizedBox(height: 24),
               _barisPengaturan(
                 Icons.logout_rounded,
                 'Keluar',
@@ -384,7 +399,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
                         ? Image.memory(_fotoBaru!, fit: BoxFit.cover)
                         : (_fotoUrl.isEmpty
                             ? Container(
-                                color: AppColors.tint,
+                                color: AppColors.surface,
                                 alignment: Alignment.center,
                                 child: Text(inisial,
                                     style: ts(24, 800,
@@ -426,6 +441,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
             textInputAction: TextInputAction.done,
             style: ts(14, 500),
             decoration: InputDecoration(
+              fillColor: AppColors.surface,
               hintText: 'Nama lengkap',
               errorText: _errNama,
             ),
@@ -443,7 +459,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
   }
 }
 
-// _NaikKeyboard: padding sheet 20 + naik setinggi keyboard.
+// _NaikKeyboard: handle + padding sheet 20 + naik setinggi keyboard.
 // Hanya widget ini yang dibangun ulang tiap frame animasi keyboard (isi sheet
 // tidak), dan AnimatedPadding menghaluskan inset keyboard yang datang patah-patah.
 class _NaikKeyboard extends StatelessWidget {
@@ -456,7 +472,16 @@ class _NaikKeyboard extends StatelessWidget {
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Padding(padding: const EdgeInsets.all(20), child: child),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetHandle(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: child,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -556,7 +581,11 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
           textInputAction:
               terakhir ? TextInputAction.done : TextInputAction.next,
           style: ts(14, 500),
-          decoration: InputDecoration(hintText: hint, errorText: error),
+          decoration: InputDecoration(
+            fillColor: AppColors.surface,
+            hintText: hint,
+            errorText: error,
+          ),
           onChanged: (_) {
             if (error != null) setState(hapusError);
           },

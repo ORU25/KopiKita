@@ -26,7 +26,7 @@ class KartuVoucherItem extends StatelessWidget {
     return Opacity(
       opacity: onTap == null ? 0.55 : 1,
       child: Material(
-        color: AppColors.tint,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),

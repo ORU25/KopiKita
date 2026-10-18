@@ -81,18 +81,7 @@ class _VoucherSayaSheetState extends State<_VoucherSayaSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Handle
-        Center(
-          child: Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 4),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.pending,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
+        const SheetHandle(),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
           child: Text('Voucher Saya', style: ts(18, 800, ls: -0.3)),
@@ -103,10 +92,7 @@ class _VoucherSayaSheetState extends State<_VoucherSayaSheet> {
             builder: (context, userSnap) {
               if (userSnap.connectionState == ConnectionState.waiting &&
                   !userSnap.hasData) {
-                return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: LoadingView(),
-                );
+                return _loading(context);
               }
 
               if (userSnap.hasError) {
@@ -129,6 +115,7 @@ class _VoucherSayaSheetState extends State<_VoucherSayaSheet> {
                     ),
                   );
 
+                  if (!snap.hasData && !snap.hasError) return _loading(context);
                   if (keadaan != null) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 24),
@@ -203,6 +190,12 @@ class _VoucherSayaSheetState extends State<_VoucherSayaSheet> {
       ],
     );
   }
+
+  // _loading: setinggi setengah layar agar sheet tidak terlalu tinggi saat memuat
+  Widget _loading(BuildContext context) => SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.5,
+        child: const LoadingView(),
+      );
 
   Widget _judulBagian(String judul, int jumlah) {
     return Row(

@@ -7,6 +7,8 @@ import '../providers/cart_provider.dart';
 import '../services/user_repo.dart';
 import '../services/voucher_repository.dart';
 import '../theme/app_theme.dart';
+import 'common.dart';
+import 'state_views.dart';
 import 'voucher_card.dart';
 
 // bukaGantiVoucher: sheet pilih voucher dari Keranjang (link "Ganti").
@@ -84,18 +86,7 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 4),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.pending,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+          const SheetHandle(),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
             child: Text('Pilih voucher', style: ts(18, 800, ls: -0.3)),
@@ -113,6 +104,7 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
                     style: ts(14, 500),
                     onSubmitted: (v) => _pilih(v),
                     decoration: const InputDecoration(
+                      fillColor: AppColors.surface,
                       hintText: 'Masukkan kode voucher',
                       prefixIcon: Icon(Icons.confirmation_number_outlined),
                     ),
@@ -140,11 +132,9 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
               future: _daftar,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
-                  return const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    ),
+                  return SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.5,
+                    child: const LoadingView(),
                   );
                 }
                 if (snap.hasError) {
