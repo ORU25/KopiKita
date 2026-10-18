@@ -142,10 +142,7 @@ class AccountPage extends StatelessWidget {
               _barisPengaturan(
                 Icons.confirmation_number_outlined,
                 'Voucher Saya',
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PromoPage()),
-                ),
+                () => bukaVoucherSaya(context),
               ),
               _barisPengaturan(
                 Icons.person_outline_rounded,

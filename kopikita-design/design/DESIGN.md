@@ -309,16 +309,20 @@ Bottom sheet untuk memilih voucher atau memasukkan kode secara manual melalui `b
 - **Validasi:** Voucher yang tidak aktif, kedaluwarsa, atau tidak memenuhi minimal belanja tidak dapat dipilih.
 - **Proses:** Voucher divalidasi melalui `CartProvider.terapkanVoucher`. Jika berhasil, sheet ditutup dan total keranjang diperbarui. Jika gagal, pesan kesalahan ditampilkan.
 
-## 3.5b Promo & Voucher (`screens/promo_page.dart`)
+### 3.5b Sheet Voucher Saya (`screens/promo_page.dart`)
 
-Halaman yang menampilkan banner promosi dan daftar voucher milik pengguna.
+Bottom sheet daftar voucher milik pengguna, dibuka dari baris **Voucher Saya** di Akun melalui `bukaVoucherSaya(context)`. Tanpa banner promosi.
 
-- **Header voucher aktif:** Menampilkan jumlah voucher yang tersedia.
-- **Banner promosi:** Tiga banner horizontal (`banner-promo-1..3.png`) dengan gambar yang dapat digeser.
-- **Voucher saya:** Menampilkan voucher yang berlaku dan tidak berlaku, diurutkan berdasarkan statusnya.
+- **Gaya sheet:** Sama dengan 3.5a — `showModalBottomSheet` (`isScrollControlled`, `useSafeArea`), latar `bg`, radius atas 28, handle 40×4 `pending`, judul "Voucher Saya" 18/800.
+- **Daftar:** Bagian "Bisa digunakan" lalu "Voucher lainnya" (judul 15/700 + jumlah 12/500 `muted`), kartu `KartuVoucherItem`.
 - **Kartu voucher:** Memuat kode, nominal diskon, minimal belanja, masa berlaku, dan alasan ketidakberlakuan.
-- **Interaksi:** Voucher yang berlaku dapat disalin dengan tombol Salin atau mengetuk kartu. Kode yang disalin dikonfirmasi melalui SnackBar.
-- **Keadaan halaman:** Menangani proses loading, error, dan kondisi ketika pengguna belum memiliki voucher.
+- **Interaksi:** Ketuk voucher yang berlaku → kode disalin, sheet ditutup, lalu SnackBar "Kode … berhasil disalin". Voucher tidak berlaku tidak bisa diketuk (ikon gembok).
+- **Keadaan:** Menangani loading, error (tombol Coba lagi), dan kondisi belum memiliki voucher.
+
+```dart
+_barisPengaturan(Icons.confirmation_number_outlined, 'Voucher Saya',
+    () => bukaVoucherSaya(context)),
+```
 
 ### 3.6 Pesanan — Aktif (`screens/Pesanan-Aktif.png`, `source/Status.dc.html`)
 - Judul "Pesanan Saya" 24/800. Tab teks **Aktif | Riwayat** (tinggi 44, garis bawah 2 `primary` di tab aktif, garis dasar 1 `divider`).
@@ -339,7 +343,7 @@ Halaman yang menampilkan banner promosi dan daftar voucher milik pengguna.
 ### 3.8 Akun (`screens/Akun.png`, `source/Akun.dc.html`)
 - Judul "Akun" 24/800.
 - Card profil (putih, radius 20, padding 14): avatar inisial 48 bulat latar `tint` · nama 16/800 · email 12 muted. **Hanya tampilan** — tidak bisa diketuk dan tanpa chevron (chevron di `screens/Akun.png` diabaikan); edit lewat baris "Edit profil".
-- **Voucher saya**: judul 16/800; daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`. Data dari Firestore: hanya voucher milik pengguna (`users/{uid}.voucher` × `vouchers/{kode}`) yang `aktif` dan belum kedaluwarsa, realtime. Kosong → "Belum ada voucher." 13/500 `muted`. Di bawah daftar tautan **Lihat semua** 13/700 `primary` → Promo & Voucher (3.5b).
+- **Voucher saya**: judul 16/800; daftar horizontal kartu 200×76 radius 18, latar `tint`, border 1.5 dashed `caramel`: kode 14/800 `primary` + info 12 `textSecondary`. Data dari Firestore: hanya voucher milik pengguna (`users/{uid}.voucher` × `vouchers/{kode}`) yang `aktif` dan belum kedaluwarsa, realtime. Kosong → "Belum ada voucher." 13/500 `muted`. Di bawah daftar tautan **Lihat semua** 13/700 `primary` → sheet Voucher Saya (3.5b).
 - **Avatar profil** di card: bulat **48**, `ClipOval`. Bila `users/{uid}.fotoUrl` terisi → `Image.network` (`BoxFit.cover`); bila kosong atau gagal dimuat → latar `tint` dengan inisial nama 16/800 `primary` (`errorBuilder` menangani kasus jaringan mati). Saat pertama kali belum ada foto, tampilan persis seperti sebelumnya (inisial).
 - **Baris pengaturan datar** (`_barisPengaturan`: 52 tinggi, **ikon kiri 22** + jarak 12, label 14/600, chevron muted di kanan, garis bawah `divider`), urutan dari atas:
   1. **Notifikasi pesanan** (ikon `notifications_none_rounded`) — **toggle langsung di baris**, bukan halaman tersendiri: `Switch` di kanan (thumb aktif `primary`) menggantikan chevron; ketuk baris = membalik toggle. Nilai dibaca dari `users/{uid}.notifikasi` lewat `UserRepo.stream()` yang sama dengan card profil; ubah → `UserRepo.update({'notifikasi': v})` (cache lokal Firestore membuat switch langsung berubah); gagal → SnackBar `Gagal menyimpan: {e}`. (`NotificationPage` tetap ada, hanya dibuka dari tombol lonceng di Beranda.)
@@ -404,4 +408,4 @@ class AppColors {
 - Teks harga: format Rupiah tanpa desimal dengan titik ribuan — "Rp22.000" (`NumberFormat.currency(locale: 'id', symbol: 'Rp', decimalDigits: 0)`).
 
 ## 5. Belum didesain
-Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, keadaan error/loading, serta aplikasi staf & admin. (Detail promo/voucher sudah dirancang di 3.5b; sheet Ganti voucher di 3.5a.) Ikuti token dan komponen di atas untuk layar-layar yang belum didesain.
+Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, keadaan error/loading, serta aplikasi staf & admin. (Sheet Voucher Saya sudah dirancang di 3.5b; sheet Ganti voucher di 3.5a.) Ikuti token dan komponen di atas untuk layar-layar yang belum didesain.
