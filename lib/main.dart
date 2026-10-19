@@ -43,7 +43,6 @@ class MainApp extends StatelessWidget {
       title: 'KopiKita',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      scaffoldMessengerKey: NotifPesanan.messengerKey, // ← tambah ini
       home: FutureBuilder(
         future: _splashSelesai,
         builder: (context, snap) => snap.connectionState == ConnectionState.done
@@ -89,7 +88,9 @@ class AuthGate extends StatelessWidget {
         if (snap.hasData) {
           // Pasang listener global notifikasi pesanan (idempoten)
           NotifPesanan.pasang();
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
+
             if (NavigationPage.tab.value != NavigationPage.tabBeranda) {
               NavigationPage.tab.value = NavigationPage.tabBeranda;
             }

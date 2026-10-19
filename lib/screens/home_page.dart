@@ -14,6 +14,7 @@ import 'favorite_page.dart';
 import 'notification_page.dart';
 import 'orders_page.dart';
 import 'promo_page.dart';
+import '../services/notif_repository.dart';
 
 // HomePage: layar Beranda (DESIGN.md 3.2)
 // Banner gambar + card melayang (sapaan, metode pesan, aksi cepat) + slider promo
@@ -28,7 +29,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   // State: _promoController mengontrol PageView slider promo
   // viewportFraction 0.82 ≈ lebar kartu 290 + jarak 12 pada layar 390
-  final PageController _promoController = PageController(viewportFraction: 0.82);
+  final PageController _promoController = PageController(
+    viewportFraction: 0.82,
+  );
   // State: _promoAktif menyimpan index kartu promo yang sedang tampil (untuk dot)
   int _promoAktif = 0;
   // State: _produk = stream produk untuk "Paling laris"; dibuat ulang saat "Coba lagi"
@@ -58,7 +61,9 @@ class _HomePageState extends State<HomePage> {
   // _tapDot: cari dot terdekat dari posisi tap (dx relatif tengah baris);
   // bila dalam radius 22, geser slider ke kartu tersebut
   void _tapDot(double dx) {
-    final lebar = [for (var i = 0; i < 3; i++) _lebarDot(i) + 6]; // + margin 3×2
+    final lebar = [
+      for (var i = 0; i < 3; i++) _lebarDot(i) + 6,
+    ]; // + margin 3×2
     var x = -lebar.reduce((a, b) => a + b) / 2; // Tepi kiri baris dot
     var terdekat = 0;
     var jarak = double.infinity;
@@ -98,8 +103,9 @@ class _HomePageState extends State<HomePage> {
             children: [
               // ClipRRect: banner tinggi 280 dengan radius bawah 24
               ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(bottom: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(24),
+                ),
                 child: Container(
                   height: 280,
                   width: double.infinity,
@@ -127,18 +133,48 @@ class _HomePageState extends State<HomePage> {
               Positioned(
                 top: atasAman + 16,
                 right: 20,
-                child: RoundIconButton(
-                  icon: Icons.notifications_none_rounded,
-                  tooltip: 'Notifikasi',
-                  background: AppColors.cream.withValues(alpha: 0.14),
-                  foreground: AppColors.cream,
-                  shadow: false,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationPage(),
-                    ),
-                  ),
+                child: StreamBuilder<int>(
+                  stream: NotifRepository.streamBelumDibaca(),
+                  builder: (context, snap) {
+                    // Langsung pakai jumlah belum dibaca (abaikan toggle)
+                    final belumDibaca = snap.data ?? 0;
+
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        RoundIconButton(
+                          icon: Icons.notifications_none_rounded,
+                          tooltip: 'Notifikasi',
+                          background: AppColors.cream.withValues(alpha: 0.14),
+                          foreground: AppColors.cream,
+                          shadow: false,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationPage(),
+                            ),
+                          ),
+                        ),
+                        if (belumDibaca > 0)
+                          Positioned(
+                            right: 10,
+                            top: 10,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.cream,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
               // Positioned: sapaan di atas card, menimpa banner gelap.
@@ -155,17 +191,26 @@ class _HomePageState extends State<HomePage> {
                       builder: (context, snap) {
                         final nama = UserRepo.namaDari(snap.data?.data());
                         return Text(
-                          nama.trim().isEmpty ? 'Hai!' : 'Hai, ${_namaDepan(nama)}',
+                          nama.trim().isEmpty
+                              ? 'Hai!'
+                              : 'Hai, ${_namaDepan(nama)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: ts(32, 800,
-                              color: Colors.white, ls: -0.5, height: 1.2),
+                          style: ts(
+                            32,
+                            800,
+                            color: Colors.white,
+                            ls: -0.5,
+                            height: 1.2,
+                          ),
                         );
                       },
                     ),
                     const SizedBox(height: 4),
-                    Text('Mau ngopi apa hari ini?',
-                        style: ts(16, 600, color: Colors.white, height: 1.2)),
+                    Text(
+                      'Mau ngopi apa hari ini?',
+                      style: ts(16, 600, color: Colors.white, height: 1.2),
+                    ),
                   ],
                 ),
               ),
@@ -186,9 +231,12 @@ class _HomePageState extends State<HomePage> {
                 Expanded(child: Text('Promo untukmu', style: ts(16, 800))),
                 GestureDetector(
                   // 1. UBAH KE TAB AKUN (VOUCHER)
-                  onTap: () => NavigationPage.tab.value = NavigationPage.tabAkun,
-                  child: Text('Lihat semua',
-                      style: ts(13, 700, color: AppColors.promoLabel)),
+                  onTap: () =>
+                      NavigationPage.tab.value = NavigationPage.tabAkun,
+                  child: Text(
+                    'Lihat semua',
+                    style: ts(13, 700, color: AppColors.promoLabel),
+                  ),
                 ),
               ],
             ),
@@ -212,7 +260,8 @@ class _HomePageState extends State<HomePage> {
                   ),
                   _KartuPromo(
                     gambar: 'assets/images/banner-promo-2.png',
-                    label: 'Promo mingguan: beli 2 minum gratis 1, kode KITAB2G1',
+                    label:
+                        'Promo mingguan: beli 2 minum gratis 1, kode KITAB2G1',
                   ),
                   _KartuPromo(
                     gambar: 'assets/images/banner-promo-3.png',
@@ -262,8 +311,10 @@ class _HomePageState extends State<HomePage> {
                 GestureDetector(
                   onTap: () =>
                       NavigationPage.tab.value = NavigationPage.tabMenu,
-                  child: Text('Lihat menu',
-                      style: ts(13, 700, color: AppColors.promoLabel)),
+                  child: Text(
+                    'Lihat menu',
+                    style: ts(13, 700, color: AppColors.promoLabel),
+                  ),
                 ),
               ],
             ),
@@ -286,8 +337,10 @@ class _HomePageState extends State<HomePage> {
               );
               if (keadaan != null) return keadaan;
               // Maksimal 4 baris (urutan mengikuti katalog)
-              final laris =
-                  snap.requireData.where((p) => p.rekomendasi).take(4).toList();
+              final laris = snap.requireData
+                  .where((p) => p.rekomendasi)
+                  .take(4)
+                  .toList();
               return Column(
                 children: [
                   for (final (i, p) in laris.indexed)
@@ -316,7 +369,8 @@ class _HomePageState extends State<HomePage> {
               border: terakhir
                   ? null
                   : const Border(
-                      bottom: BorderSide(color: AppColors.dividerList)),
+                      bottom: BorderSide(color: AppColors.dividerList),
+                    ),
             ),
             child: Row(
               children: [
@@ -346,8 +400,10 @@ class _HomePageState extends State<HomePage> {
                         style: ts(12, 500, color: AppColors.muted),
                       ),
                       const SizedBox(height: 4),
-                      Text(rp(p.harga),
-                          style: ts(14, 800, color: AppColors.primary)),
+                      Text(
+                        rp(p.harga),
+                        style: ts(14, 800, color: AppColors.primary),
+                      ),
                     ],
                   ),
                 ),
@@ -444,7 +500,11 @@ class _AksiBesar extends StatelessWidget {
   final String gambar; // Path aset ilustrasi
   final String label; // Teks label
   final VoidCallback onTap; // Aksi saat ditekan
-  const _AksiBesar({required this.gambar, required this.label, required this.onTap});
+  const _AksiBesar({
+    required this.gambar,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -474,7 +534,11 @@ class _AksiCepat extends StatelessWidget {
   final IconData icon; // Ikon aksi
   final String label; // Teks label
   final VoidCallback onTap; // Aksi saat ditekan
-  const _AksiCepat({required this.icon, required this.label, required this.onTap});
+  const _AksiCepat({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
