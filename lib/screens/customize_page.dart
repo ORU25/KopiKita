@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/dummy_data.dart';
 import '../models/cart_item.dart';
+import '../models/produk.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -65,25 +65,27 @@ class _CustomizePageState extends State<CustomizePage> {
     _ambilConfig();
   }
 
-  // _ambilConfig: Mengambil harga Large dan Add-on langsung dari Firestore
+  // _ambilConfig: Mengambil harga Large dan Add-on langsung dari Firestore.
+  // Bila gagal (offline / config belum ada), pakai default aman agar UI tetap
+  // jalan: hargaLarge 4000 dan tanpa add-on.
   Future<void> _ambilConfig() async {
     try {
       final snap = await FirebaseFirestore.instance.doc('config/menu').get();
       final data = snap.data();
       if (data != null) {
-        _hargaLarge = (data['hargaLarge'] ?? 0) as int;
+        _hargaLarge = (data['hargaLarge'] ?? 4000) as int;
         final rawAddOn = data['addOn'] as Map<String, dynamic>? ?? {};
-        _addOnMenu = rawAddOn.map((key, value) => MapEntry(key, (value as num).toInt()));
+        _addOnMenu = rawAddOn.map(
+          (key, value) => MapEntry(key, (value as num).toInt()),
+        );
+      } else {
+        _hargaLarge = 4000;
       }
     } catch (e) {
-      // Jika gagal memuat dari web, fallback ke dummy_data.dart
-      _hargaLarge = hargaLarge;
-      _addOnMenu = Map<String, int>.from(addOnMenu);
+      // Fallback aman bila config/menu tidak terbaca
+      _hargaLarge = 4000;
     }
-    
-    if (mounted) {
-      setState(() => _memuatConfig = false);
-    }
+    if (mounted) setState(() => _memuatConfig = false);
   }
 
   // dispose: membersihkan controller saat widget dihancurkan
@@ -202,7 +204,7 @@ class _CustomizePageState extends State<CustomizePage> {
       // Opsi minuman hanya untuk produk non-makanan
       if (!p.makanan) ...[
         const SizedBox(height: 20),
-        
+
         // Ukuran: Tampil jika `bisaLarge` true, memakai harga dari web
         if (p.bisaLarge) ...[
           _grup(
@@ -221,11 +223,7 @@ class _CustomizePageState extends State<CustomizePage> {
         if (p.suhu.isNotEmpty) ...[
           _grup(
             'Suhu',
-            _chipPilihan(
-              p.suhu,
-              _suhu,
-              (v) => setState(() => _suhu = v),
-            ),
+            _chipPilihan(p.suhu, _suhu, (v) => setState(() => _suhu = v)),
           ),
           const SizedBox(height: 14),
         ],
@@ -335,8 +333,11 @@ class _CustomizePageState extends State<CustomizePage> {
           fit: BoxFit.scaleDown,
           child: Text(
             teks,
-            style: ts(13, aktif ? 700 : 600,
-                color: aktif ? AppColors.primary : AppColors.textSecondary),
+            style: ts(
+              13,
+              aktif ? 700 : 600,
+              color: aktif ? AppColors.primary : AppColors.textSecondary,
+            ),
           ),
         ),
       ),

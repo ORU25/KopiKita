@@ -356,10 +356,17 @@ _barisPengaturan(Icons.confirmation_number_outlined, 'Voucher Saya',
   - Tiap langkah ada catatan 12 muted (mis. "Barista sedang membuat pesananmu").
 - **Card detail**: baris item "1× Kopi Susu Kita (Large, Es) … Rp31.000", garis, "Total dibayar" + total 16/800 `primary`.
 - Bawah: strip keranjang + navbar (tab Pesanan aktif). Status diperbarui realtime (Firestore stream).
+- **Tombol Batalkan** (hanya saat status `menunggu_bayar`): tombol sekunder bergaris penuh lebar 52, border 1.5 `danger`, ikon `close_rounded` 20 + label "Batalkan pesanan" 14/700 `danger`. Ketuk → `AlertDialog` (radius 20, latar `surface`): judul "Batalkan pesanan?" 16/800 ls −0.3 · isi "Pesanan {nomor} akan dibatalkan dan tidak bisa dikembalikan." 13 `muted` line-height 1.4 · tombol **Tidak** 13/700 `muted` dan **Ya, batalkan** 13/700 `danger`. Ya → `OrderRepository.batalkan(orderId)` (Firestore transaction; hanya berhasil bila status masih `menunggu_bayar`); sukses → SnackBar "Pesanan dibatalkan."; gagal (mis. staf sudah konfirmasi bayar) → SnackBar pesan dari `StateError`. Setelah status berubah ke `batal`, kartu antrean + tombol hilang (stream reaktif).
+- **Notifikasi in-app**: `NotifPesanan` (`lib/services/notif_pesanan.dart`) dipasang di `AuthGate` saat login dan dilepas saat logout. Ia memantau `OrderRepository.streamAktif()`; saat status pesanan berubah ke **Dibayar / Diproses / Siap diambil**, ditulis satu dokumen ke `users/{uid}/notifikasi` (judul "Pesanan {nomor}", pesan mis. "Pesanan {nomor} siap diambil. Silakan ke kasir.", `dibaca: false`) via `NotifRepository.tambah`. Daftar tampil di `NotificationPage` (lonceng Beranda); titik merah di lonceng = jumlah `dibaca == false`. Ditulis selalu, tidak bergantung toggle `users/{uid}.notifikasi`.
+- **Sumber data**: `orders/{id}` via `OrderRepository.streamAktif()` (Firestore stream, urut `createdAt` desc). Tidak lagi membaca `CartProvider.pesananAktif` (field itu sudah dihapus).
 
 ### 3.7 Pesanan — Riwayat (`screens/Pesanan-Riwayat.png`, `source/Riwayat.dc.html`)
 - Header & tab sama, tab Riwayat aktif.
 - Dikelompokkan per bulan (header 13/700 muted, mis. "Oktober 2026"). Tiap pesanan baris datar (padding 14 0, garis `divider`): thumbnail 48 radius 10 · ringkasan item 14/700 (ellipsis) · "8 Okt · Selesai" 12 muted · kanan: total 14/800 + link "Pesan lagi" 12/700 `primary`.
+- **Sumber data**: `orders/{id}` via `OrderRepository.streamRiwayat()` (status `selesai`/`batal`, urut `createdAt` desc). Pengelompokan bulan memakai `intl` `DateFormat('MMMM yyyy', 'id_ID')` (butuh `initializeDateFormatting('id_ID')` di `main()`).
+- **Badge "Dibatalkan"**: baris riwayat dengan `p.batal` menampilkan "8 Okt · Dibatalkan" 12/500 `danger`; baris selesai tetap "8 Okt · Selesai" `muted`.
+- **Pesan lagi**: ketuk teks "Pesan lagi" 12/700 `primary` → salin seluruh `p.items` ke `CartProvider.addItem` (via `CartItem.fromMap` yang sudah tersimpan di `Pesanan`), lalu `NavigationPage.tab.value = tabMenu` + SnackBar "{n} item ditambahkan ke keranjang.". Fungsi publik `pesanLagi(BuildContext, Pesanan)` disediakan untuk P3 di Beranda (#7).
+- **Thumbnail** riwayat memakai `ProductThumb(size: 48, url: items.first.gambarUrl, nama: items.first.nama, makanan: items.first.makanan)` — foto item pertama.
 
 ### 3.8 Akun (`screens/Akun.png`, `source/Akun.dc.html`)
 - Judul "Akun" 24/800.
@@ -432,4 +439,15 @@ class AppColors {
 - Teks harga: format Rupiah tanpa desimal dengan titik ribuan — "Rp22.000" (`NumberFormat.currency(locale: 'id', symbol: 'Rp', decimalDigits: 0)`).
 
 ## 5. Belum didesain
-Lupa kata sandi, Notifikasi, Edit profil, pencarian menu, keadaan error/loading, serta aplikasi staf & admin. (Sheet Voucher Saya sudah dirancang di 3.5b; sheet Ganti voucher di 3.5a.) Ikuti token dan komponen di atas untuk layar-layar yang belum didesain.
+
+Semua layar alur pelanggan sudah didesain. Layar berikut mengikuti token & komponen di atas tanpa mockup khusus:
+
+- **Lupa kata sandi** — `AlertDialog` (3.1), bukan halaman.
+- **Notifikasi** — `NotificationPage` (3.8), dibuka dari lonceng Beranda.
+- **Edit profil & Ubah kata sandi** — bottom sheet (3.8).
+- **Cari menu** — 3.3a.
+- **Favorit** — 3.3b.
+- **Detail promo/voucher** — tidak ada halaman khusus; "Lihat semua" → tab Akun, sheet Voucher Saya (3.5b).
+- **Keadaan kosong/loading/error** — widget bersama `EmptyView`/`LoadingView`/`ErrorView` (`lib/widgets/state_views.dart`), dipakai Menu, Beranda, Cari, Favorit, Pesanan Aktif, Riwayat, Voucher.
+- **Tombol Batalkan + notifikasi in-app** — 3.6.
+- **Web staf & admin** — repo terpisah `kopikita-web`; desain dicatat di `kopikita-web/docs/DESIGN.md` (bukan di sini).

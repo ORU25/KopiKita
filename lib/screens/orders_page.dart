@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../data/dummy_data.dart';
 import '../main.dart';
+import '../models/pesanan.dart';
 import '../providers/cart_provider.dart';
+import '../services/order_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/state_views.dart';
 
 // OrdersPage: layar Pesanan (DESIGN.md 3.6 Aktif & 3.7 Riwayat)
 class OrdersPage extends StatefulWidget {
@@ -16,10 +19,7 @@ class OrdersPage extends StatefulWidget {
   static final ValueNotifier<(int gen, int tab)> _minta =
       ValueNotifier<(int, int)>((0, 0));
 
-  /// Pindah ke sub-tab Aktif (dipanggil dari bottom nav "Pesanan").
   static void mintaAktif() => _minta.value = (_minta.value.$1 + 1, 0);
-
-  /// Pindah ke sub-tab Riwayat (dipanggil dari "Pesan Lagi" di Beranda).
   static void mintaRiwayat() => _minta.value = (_minta.value.$1 + 1, 1);
 
   @override
@@ -95,28 +95,239 @@ class _OrdersPageState extends State<OrdersPage>
   }
 }
 
-// _TabAktif: kartu antrean + stepper status + detail pesanan
-class _TabAktif extends StatelessWidget {
+// _TabAktif: Menampilkan daftar pesanan aktif. Jika lebih dari satu,
+// pesanan diurutkan seperti accordion (bisa dilipat/buka).
+class _TabAktif extends StatefulWidget {
   const _TabAktif();
 
   @override
-  Widget build(BuildContext context) {
-    final pesanan = context.watch<CartProvider>().pesananAktif;
-    if (pesanan == null) {
-      return Center(
-        child: Text('Belum ada pesanan aktif.',
-            style: ts(14, 600, color: AppColors.muted)),
-      );
-    }
+  State<_TabAktif> createState() => _TabAktifState();
+}
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
+class _TabAktifState extends State<_TabAktif> {
+  late Stream<List<Pesanan>> _stream = OrderRepository.streamAktif();
+
+  // State untuk Accordion: menyimpan ID pesanan yang sedang terbuka (expanded)
+  final Set<String> _expandedIds = {};
+
+  void _muatUlang() => setState(() => _stream = OrderRepository.streamAktif());
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Pesanan>>(
+      stream: _stream,
+      builder: (context, snap) {
+        final keadaan = keadaanStream<List<Pesanan>>(
+          snap,
+          onCoba: _muatUlang,
+          kosong: (d) => d.isEmpty,
+          tampilanKosong: const EmptyView(
+            icon: Icons.receipt_long_outlined,
+            judul: 'Belum ada pesanan aktif',
+            pesan: 'Pesanan yang sedang berjalan akan tampil di sini. Yuk pesan menu favoritmu!',
+          ),
+        );
+        if (keadaan != null) return keadaan;
+
+        final daftarPesanan = snap.requireData;
+
+        // Secara default, buka accordion untuk pesanan pertama jika belum ada yang terbuka
+        if (_expandedIds.isEmpty && daftarPesanan.isNotEmpty) {
+          _expandedIds.add(daftarPesanan.first.id);
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
+          itemCount: daftarPesanan.length,
+          itemBuilder: (context, index) {
+            final pesanan = daftarPesanan[index];
+            final isExpanded = _expandedIds.contains(pesanan.id);
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == daftarPesanan.length - 1 ? 0 : 16,
+              ),
+              child: _KartuPesananAktif(
+                pesanan: pesanan,
+                isExpanded: isExpanded,
+                onToggle: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _expandedIds.remove(pesanan.id);
+                    } else {
+                      _expandedIds.add(pesanan.id);
+                    }
+                  });
+                },
+                onBatalkan: () => _konfirmasiBatalkan(context, pesanan),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _konfirmasiBatalkan(BuildContext context, Pesanan p) async {
+    final yakin = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Batalkan pesanan?', style: ts(16, 800, ls: -0.3)),
+        content: Text(
+          'Pesanan ${p.nomor} akan dibatalkan dan tidak bisa dikembalikan.',
+          style: ts(13, 500, color: AppColors.muted, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Tidak', style: ts(13, 700, color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Ya, batalkan',
+              style: ts(13, 700, color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true) return;
+    if (!context.mounted) return;
+    try {
+      await OrderRepository.batalkan(p.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Pesanan dibatalkan.')));
+    } catch (e) {
+      if (!context.mounted) return;
+      final pesan = e is StateError
+          ? e.message
+          : 'Gagal membatalkan pesanan. Coba lagi.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(pesan)));
+    }
+  }
+}
+
+// _KartuPesananAktif: Desain awal dikembalikan (kartu antrean cokelat penuh,
+// stepper vertikal, detail item), dibungkus dengan animasi Accordion (AnimatedSize).
+class _KartuPesananAktif extends StatelessWidget {
+  final Pesanan pesanan;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final VoidCallback onBatalkan;
+
+  const _KartuPesananAktif({
+    required this.pesanan,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onBatalkan,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Header ringkas (selalu tampil saat dilipat)
+    final header = InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.outline),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: AppColors.tint,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.receipt_long_rounded,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Antrean ${pesanan.nomor}', style: ts(16, 800)),
+                  Text(
+                    statusPesanan[pesanan.status][0],
+                    style: ts(13, 600, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: AppColors.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Column(
       children: [
-        _kartuAntrean(pesanan),
-        const SizedBox(height: 16),
-        _kartuStatus(pesanan.status),
-        const SizedBox(height: 16),
-        _kartuDetail(pesanan),
+        header,
+        // Detail pesanan (hanya tampil kalau di-expand)
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: isExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    children: [
+                      // 1. Kartu Antrean Cokelat
+                      _kartuAntrean(pesanan),
+                      const SizedBox(height: 12),
+                      // 2. Stepper Vertikal (Desain Awal)
+                      _kartuStatus(pesanan.status),
+                      const SizedBox(height: 12),
+                      // 3. Rincian Item (Desain Awal)
+                      _kartuDetail(pesanan),
+                      // 4. Tombol Batalkan (Desain Awal, Full Width)
+                      if (pesanan.status == 0) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 52,
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: onBatalkan,
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            label: Text('Batalkan pesanan', style: ts(14, 700)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.danger,
+                              side: const BorderSide(
+                                color: AppColors.danger,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
@@ -148,11 +359,20 @@ class _TabAktif extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nomor antrean',
-                            style: ts(12, 600, color: AppColors.cream)),
-                        Text(p.nomor,
-                            style: ts(48, 800,
-                                color: AppColors.cream, ls: -1, height: 1.1)),
+                        Text(
+                          'Nomor antrean',
+                          style: ts(12, 600, color: AppColors.cream),
+                        ),
+                        Text(
+                          p.nomor,
+                          style: ts(
+                            48,
+                            800,
+                            color: AppColors.cream,
+                            ls: -1,
+                            height: 1.1,
+                          ),
+                        ),
                         Text(
                           p.makanDiTempat
                               ? 'Makan di tempat · Meja ${p.nomorMeja}'
@@ -170,8 +390,10 @@ class _TabAktif extends StatelessWidget {
                       color: AppColors.cream,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Text(statusPesanan[p.status][0],
-                        style: ts(13, 800, color: AppColors.primary)),
+                    child: Text(
+                      statusPesanan[p.status][0],
+                      style: ts(13, 800, color: AppColors.primary),
+                    ),
                   ),
                 ],
               ),
@@ -220,15 +442,18 @@ class _TabAktif extends StatelessWidget {
                     color: selesai
                         ? AppColors.primary
                         : kini
-                            ? AppColors.caramel
-                            : AppColors.surface,
+                        ? AppColors.caramel
+                        : AppColors.surface,
                     border: selesai || kini
                         ? null
                         : Border.all(color: AppColors.pending, width: 2),
                   ),
                   child: selesai
-                      ? const Icon(Icons.check_rounded,
-                          size: 16, color: Colors.white)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        )
                       : null,
                 ),
                 if (!terakhir)
@@ -250,10 +475,11 @@ class _TabAktif extends StatelessWidget {
                 children: [
                   Text(
                     statusPesanan[i][0],
-                    style: ts(14, kini ? 800 : 600,
-                        color: selesai || kini
-                            ? AppColors.ink
-                            : AppColors.muted),
+                    style: ts(
+                      14,
+                      kini ? 800 : 600,
+                      color: selesai || kini ? AppColors.ink : AppColors.muted,
+                    ),
                   ),
                   Text(catatan, style: ts(12, 500, color: AppColors.muted)),
                 ],
@@ -281,11 +507,15 @@ class _TabAktif extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('${item.jumlah}× ${item.labelSingkat}',
-                        style: ts(14, 600)),
+                    child: Text(
+                      '${item.jumlah}× ${item.labelSingkat}',
+                      style: ts(14, 600),
+                    ),
                   ),
-                  Text(rp(item.totalHarga),
-                      style: ts(14, 500, color: AppColors.muted)),
+                  Text(
+                    rp(item.totalHarga),
+                    style: ts(14, 500, color: AppColors.muted),
+                  ),
                 ],
               ),
             ),
@@ -302,28 +532,75 @@ class _TabAktif extends StatelessWidget {
   }
 }
 
-// _TabRiwayat: riwayat pesanan dikelompokkan per bulan
-class _TabRiwayat extends StatelessWidget {
+// _TabRiwayat: riwayat pesanan dari Firestore, dikelompokkan per bulan.
+class _TabRiwayat extends StatefulWidget {
   const _TabRiwayat();
 
   @override
+  State<_TabRiwayat> createState() => _TabRiwayatState();
+}
+
+class _TabRiwayatState extends State<_TabRiwayat> {
+  late Stream<List<Pesanan>> _stream = OrderRepository.streamRiwayat();
+
+  void _muatUlang() =>
+      setState(() => _stream = OrderRepository.streamRiwayat());
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
-      children: [
-        for (final bulan in riwayatPerBulan.entries) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 4),
-            child: Text(bulan.key,
-                style: ts(13, 700, color: AppColors.muted)),
+    return StreamBuilder<List<Pesanan>>(
+      stream: _stream,
+      builder: (context, snap) {
+        final keadaan = keadaanStream<List<Pesanan>>(
+          snap,
+          onCoba: _muatUlang,
+          kosong: (d) => d.isEmpty,
+          tampilanKosong: const EmptyView(
+            icon: Icons.history_rounded,
+            judul: 'Belum ada riwayat',
+            pesan: 'Pesanan yang sudah selesai atau dibatalkan tampil di sini.',
           ),
-          for (final r in bulan.value) _baris(context, r),
-        ],
-      ],
+        );
+        if (keadaan != null) return keadaan;
+
+        // Kelompokkan per bulan (kunci: "Oktober 2026")
+        final grup = <String, List<Pesanan>>{};
+        for (final p in snap.requireData) {
+          final tgl = p.createdAt;
+          final kunci = tgl == null
+              ? 'Tanpa tanggal'
+              : DateFormat('MMMM yyyy', 'id_ID').format(tgl);
+          grup.putIfAbsent(kunci, () => []).add(p);
+        }
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
+          children: [
+            for (final bulan in grup.entries) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 16, bottom: 4),
+                child: Text(
+                  bulan.key,
+                  style: ts(13, 700, color: AppColors.muted),
+                ),
+              ),
+              for (final p in bulan.value) _baris(context, p),
+            ],
+          ],
+        );
+      },
     );
   }
 
-  Widget _baris(BuildContext context, RiwayatPesanan r) {
+  // _baris: satu baris riwayat (thumbnail 48 · ringkasan · total · Pesan lagi)
+  Widget _baris(BuildContext context, Pesanan p) {
+    final ringkasan = p.items.map((i) => i.nama).join(', ');
+    final tgl = p.createdAt == null
+        ? ''
+        : DateFormat('d MMM', 'id_ID').format(p.createdAt!);
+    final statusTeks = p.batal ? 'Dibatalkan' : 'Selesai';
+    final warnaStatus = p.batal ? AppColors.danger : AppColors.muted;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
@@ -332,19 +609,26 @@ class _TabRiwayat extends StatelessWidget {
       child: Row(
         children: [
           ProductThumb(
-              size: 48,
-              nama: r.ringkasan.split(RegExp(r',| ×')).first),
+            size: 48,
+            nama: p.items.isNotEmpty ? p.items.first.nama : null,
+            url: p.items.isNotEmpty ? p.items.first.gambarUrl : null,
+            makanan: p.items.isNotEmpty ? p.items.first.makanan : false,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(r.ringkasan,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: ts(14, 700)),
-                Text('${r.tanggal} · ${r.status}',
-                    style: ts(12, 500, color: AppColors.muted)),
+                Text(
+                  ringkasan,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: ts(14, 700),
+                ),
+                Text(
+                  '$tgl · $statusTeks',
+                  style: ts(12, 500, color: warnaStatus),
+                ),
               ],
             ),
           ),
@@ -352,14 +636,28 @@ class _TabRiwayat extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(rp(r.total), style: ts(14, 800)),
-              GestureDetector(
-                onTap: () =>
-                    NavigationPage.tab.value = NavigationPage.tabMenu,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text('Pesan lagi',
-                      style: ts(12, 700, color: AppColors.primary)),
+              Text(rp(p.total), style: ts(14, 800)),
+              const SizedBox(height: 6),
+              // Tombol "Pesan lagi" outline kecil (target sentuh 44 via padding)
+              SizedBox(
+                height: 32,
+                child: OutlinedButton.icon(
+                  onPressed: () => pesanLagi(context, p),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text('Pesan lagi', style: ts(12, 700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.2,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -368,4 +666,22 @@ class _TabRiwayat extends StatelessWidget {
       ),
     );
   }
+}
+
+/// pesanLagi: menambahkan seluruh item pesanan lama ke CartProvider, lalu
+/// pindah ke tab Menu. Fungsi publik agar bisa dipakai P3 di Beranda (#7).
+void pesanLagi(BuildContext context, Pesanan p) {
+  if (p.items.isEmpty) return;
+  final cart = context.read<CartProvider>();
+  for (final item in p.items) {
+    cart.addItem(item);
+  }
+  NavigationPage.tab.value = NavigationPage.tabMenu;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text('${p.items.length} item ditambahkan ke keranjang.'),
+      ),
+    );
 }

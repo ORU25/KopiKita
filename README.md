@@ -1,17 +1,27 @@
-# kopikita
+# KopiKita — Aplikasi Pelanggan (Flutter)
 
-A new Flutter project.
+Aplikasi Android pelanggan kedai kopi KopiKita: pesan menu, kustomisasi, keranjang, pesanan aktif realtime, dan riwayat. Web Staf & Admin ada di repo terpisah `kopikita-web`.
 
-## Getting Started
+## Fitur
 
-This project is a starting point for a Flutter application.
+- Login / Daftar / Lupa kata sandi (Firebase Auth email & kata sandi).
+- Beranda (sapaan, metode pesan, promo, "Paling laris" realtime).
+- Menu (katalog realtime dari Firestore, filter kategori, cari, favorit).
+- Kustomisasi (ukuran, suhu, gula, es, add-on, catatan).
+- Keranjang + voucher + ringkasan pajak.
+- Pesanan Aktif realtime (stepper status, tombol Batalkan) + notifikasi in-app saat status berubah.
+- Riwayat (dikelompokkan per bulan, badge "Dibatalkan", Pesan lagi).
+- Akun (edit profil + foto Cloudinary, ubah kata sandi, notifikasi, voucher saya, keluar).
 
-A few resources to get you started if this is your first Flutter project:
+## Prasyarat
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter SDK `^3.13.2`.
+- Akun Firebase project `kopikita-dev` (sudah dikonfigurasi di `lib/firebase_options.dart`).
+- Firestore dalam test mode atau rules final dari `kopikita-web`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Setup
+
+```bash
+flutter pub get
+flutter run                       # Android / emulator
+flutter run -d chrome             # Web (aplikasi pelanggan)
