@@ -128,5 +128,4 @@ class AuthService {
 
     return 'Terjadi kesalahan: $e';
   }
-  
 }

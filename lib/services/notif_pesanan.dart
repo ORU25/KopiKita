@@ -1,20 +1,23 @@
+import 'dart:async';
+
 import '../models/pesanan.dart';
 import 'notif_repository.dart';
 import 'order_repository.dart';
 
 class NotifPesanan {
   static final Map<String, int> _statusTerakhir = {};
-  static bool _sudahPasang = false;
+  static StreamSubscription<List<Pesanan>>? _sub;
 
   static void pasang() {
-    if (_sudahPasang) return;
-    _sudahPasang = true;
+    if (_sub != null) return;
     _statusTerakhir.clear();
-    OrderRepository.streamAktif().listen(_onData, onError: (_) {});
+    _sub = OrderRepository.streamAktif().listen(_onData, onError: (_) {});
   }
 
+  // Batalkan langganan agar stream user lama tidak menulis notif ke akun berikutnya
   static void lepas() {
-    _sudahPasang = false;
+    _sub?.cancel();
+    _sub = null;
     _statusTerakhir.clear();
   }
 
