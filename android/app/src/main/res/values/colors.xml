@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sama dengan AppColors.primary (lib/theme); warna aksen ikon notifikasi push -->
+    <color name="notifikasi">#6B3216</color>
+</resources>

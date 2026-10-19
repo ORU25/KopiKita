@@ -16,6 +16,7 @@ import 'widgets/common.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'services/notif_pesanan.dart';
+import 'services/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +89,7 @@ class AuthGate extends StatelessWidget {
         if (snap.hasData) {
           // Pasang listener global notifikasi pesanan (idempoten)
           NotifPesanan.pasang();
+          PushService.daftar();
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
 

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart'; // Ditambahkan untuk PaintingBinding
 
+import 'push_service.dart';
+
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -84,6 +86,7 @@ class AuthService {
 
   /// Keluar dari akun + bersihkan cache gambar (mencegah bug gambar tertukar di Web)
   static Future<void> keluar() async {
+    await PushService.lepas(); // hapus token FCM selagi masih login
     await _auth.signOut();
     
     // PERBAIKAN: Membersihkan memori gambar saat logout
