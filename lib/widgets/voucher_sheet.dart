@@ -14,6 +14,10 @@ import 'voucher_card.dart';
 // bukaGantiVoucher: sheet pilih voucher dari Keranjang (link "Ganti").
 // Daftar = users/{uid}.voucher × vouchers/{kode}; ada juga input kode manual.
 Future<void> bukaGantiVoucher(BuildContext context) {
+  // Sheet berada di atas Navigator, di luar provider milik route Keranjang.
+  // CartProvider milik pemanggil diteruskan agar Keranjang "Pesan lagi" yang
+  // terpisah tidak mengubah voucher di keranjang utama (dan sebaliknya).
+  final cart = context.read<CartProvider>();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -22,7 +26,10 @@ Future<void> bukaGantiVoucher(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => const _GantiVoucherSheet(),
+    builder: (_) => ChangeNotifierProvider<CartProvider>.value(
+      value: cart,
+      child: const _GantiVoucherSheet(),
+    ),
   );
 }
 
@@ -113,8 +120,10 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: _proses ? null : () => _pilih(_kode.text),
-                  child:
-                      Text('Pakai', style: ts(14, 700, color: AppColors.primary)),
+                  child: Text(
+                    'Pakai',
+                    style: ts(14, 700, color: AppColors.primary),
+                  ),
                 ),
               ],
             ),
@@ -122,8 +131,10 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
           if (_galat != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 20, 0),
-              child: Text(_galat!,
-                  style: ts(12, 600, color: AppColors.promoLabel)),
+              child: Text(
+                _galat!,
+                style: ts(12, 600, color: AppColors.promoLabel),
+              ),
             ),
           const SizedBox(height: 12),
           // Daftar voucher milik user
@@ -142,12 +153,16 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        Text('Gagal memuat voucher.',
-                            style: ts(13, 600, color: AppColors.muted)),
+                        Text(
+                          'Gagal memuat voucher.',
+                          style: ts(13, 600, color: AppColors.muted),
+                        ),
                         TextButton(
                           onPressed: _muatUlang,
-                          child: Text('Coba lagi',
-                              style: ts(14, 700, color: AppColors.primary)),
+                          child: Text(
+                            'Coba lagi',
+                            style: ts(14, 700, color: AppColors.primary),
+                          ),
                         ),
                       ],
                     ),
@@ -164,24 +179,28 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
                     ),
                     for (final v in daftar) ...[
                       const SizedBox(height: 10),
-                      Builder(builder: (_) {
-                        final alasan = v.alasanTidakBerlaku(cart.subtotal);
-                        return KartuVoucherItem(
-                          voucher: v,
-                          catatan: alasan,
-                          terpilih: cart.voucher == v.kode,
-                          onTap: alasan == null && !_proses
-                              ? () => _pilih(v.kode)
-                              : null,
-                        );
-                      }),
+                      Builder(
+                        builder: (_) {
+                          final alasan = v.alasanTidakBerlaku(cart.subtotal);
+                          return KartuVoucherItem(
+                            voucher: v,
+                            catatan: alasan,
+                            terpilih: cart.voucher == v.kode,
+                            onTap: alasan == null && !_proses
+                                ? () => _pilih(v.kode)
+                                : null,
+                          );
+                        },
+                      ),
                     ],
                     if (daftar.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 16),
-                        child: Text('Kamu belum punya voucher.',
-                            textAlign: TextAlign.center,
-                            style: ts(13, 500, color: AppColors.muted)),
+                        child: Text(
+                          'Kamu belum punya voucher.',
+                          textAlign: TextAlign.center,
+                          style: ts(13, 500, color: AppColors.muted),
+                        ),
                       ),
                   ],
                 );

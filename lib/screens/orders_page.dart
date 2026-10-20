@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../main.dart';
+import '../models/cart_item.dart';
 import '../models/pesanan.dart';
+import '../models/produk.dart';
 import '../providers/cart_provider.dart';
 import '../services/order_repository.dart';
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/state_views.dart';
+import 'cart_page.dart';
 
 // OrdersPage: layar Pesanan (DESIGN.md 3.6 Aktif & 3.7 Riwayat)
 class OrdersPage extends StatefulWidget {
@@ -542,6 +545,8 @@ class _TabRiwayat extends StatefulWidget {
 
 class _TabRiwayatState extends State<_TabRiwayat> {
   late Stream<List<Pesanan>> _stream = OrderRepository.streamRiwayat();
+  // Stream produk: status Habis diperbarui realtime (toggle dari web Staf/Admin)
+  late final Stream<List<Produk>> _produk = ProductRepository.stream();
 
   void _muatUlang() =>
       setState(() => _stream = OrderRepository.streamRiwayat());
@@ -573,27 +578,43 @@ class _TabRiwayatState extends State<_TabRiwayat> {
           grup.putIfAbsent(kunci, () => []).add(p);
         }
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
-          children: [
-            for (final bulan in grup.entries) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 4),
-                child: Text(
-                  bulan.key,
-                  style: ts(13, 700, color: AppColors.muted),
-                ),
-              ),
-              for (final p in bulan.value) _baris(context, p),
-            ],
-          ],
+        // Ketersediaan menu. Katalog belum termuat / gagal / kosong → null,
+        // artinya semua menu dianggap tersedia (tidak memblokir Riwayat).
+        return StreamBuilder<List<Produk>>(
+          stream: _produk,
+          builder: (context, produkSnap) {
+            final data = produkSnap.data;
+            final katalog = data == null || data.isEmpty
+                ? null
+                : {for (final pr in data) pr.id: pr};
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
+              children: [
+                for (final bulan in grup.entries) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 4),
+                    child: Text(
+                      bulan.key,
+                      style: ts(13, 700, color: AppColors.muted),
+                    ),
+                  ),
+                  for (final p in bulan.value) _baris(context, p, katalog),
+                ],
+              ],
+            );
+          },
         );
       },
     );
   }
 
   // _baris: satu baris riwayat (thumbnail 48 · ringkasan · total · Pesan lagi)
-  Widget _baris(BuildContext context, Pesanan p) {
+  // Menu yang sekarang habis ditandai lencana "Habis"; bila semua menu habis,
+  // tombol Pesan lagi dinonaktifkan.
+  Widget _baris(BuildContext context, Pesanan p, Map<String, Produk>? katalog) {
+    final habis = menuTidakTersedia(p, katalog);
+    final semuaHabis = p.items.isNotEmpty && habis.length == p.items.length;
     final ringkasan = p.items.map((i) => i.nama).join(', ');
     final tgl = p.createdAt == null
         ? ''
@@ -601,87 +622,158 @@ class _TabRiwayatState extends State<_TabRiwayat> {
     final statusTeks = p.batal ? 'Dibatalkan' : 'Selesai';
     final warnaStatus = p.batal ? AppColors.danger : AppColors.muted;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
-      child: Row(
-        children: [
-          ProductThumb(
-            size: 48,
-            nama: p.items.isNotEmpty ? p.items.first.nama : null,
-            url: p.items.isNotEmpty ? p.items.first.gambarUrl : null,
-            makanan: p.items.isNotEmpty ? p.items.first.makanan : false,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ringkasan,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ts(14, 700),
-                ),
-                Text(
-                  '$tgl · $statusTeks',
-                  style: ts(12, 500, color: warnaStatus),
-                ),
-              ],
+    return Opacity(
+      opacity: semuaHabis
+          ? 0.6
+          : 1, // abu-abu seperti Menu bila semua menu habis
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.divider)),
+        ),
+        child: Row(
+          children: [
+            ProductThumb(
+              size: 48,
+              nama: p.items.isNotEmpty ? p.items.first.nama : null,
+              url: p.items.isNotEmpty ? p.items.first.gambarUrl : null,
+              makanan: p.items.isNotEmpty ? p.items.first.makanan : false,
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(rp(p.total), style: ts(14, 800)),
-              const SizedBox(height: 6),
-              // Tombol "Pesan lagi" outline kecil (target sentuh 44 via padding)
-              SizedBox(
-                height: 32,
-                child: OutlinedButton.icon(
-                  onPressed: () => pesanLagi(context, p),
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text('Pesan lagi', style: ts(12, 700)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.2,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ringkasan,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ts(14, 700),
+                  ),
+                  Text(
+                    '$tgl · $statusTeks',
+                    style: ts(12, 500, color: warnaStatus),
+                  ),
+                  if (habis.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const HabisBadge(),
+                        // Nama hanya ditampilkan bila sebagian menu yang habis
+                        if (!semuaHabis) ...[
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              habis.map((i) => i.nama).toSet().join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: ts(12, 500, color: AppColors.muted),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(rp(p.total), style: ts(14, 800)),
+                const SizedBox(height: 6),
+                // Tombol "Pesan lagi" outline kecil (target sentuh 44 via padding)
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton.icon(
+                    // Menu habis tidak ikut; semua habis → tombol nonaktif
+                    onPressed: semuaHabis
+                        ? null
+                        : () => pesanLagi(
+                            context,
+                            p,
+                            tidakTersedia: {for (final i in habis) i.productId},
+                          ),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: Text('Pesan lagi', style: ts(12, 700)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      disabledForegroundColor: AppColors.muted,
+                      side: BorderSide(
+                        color: semuaHabis
+                            ? AppColors.outline
+                            : AppColors.primary,
+                        width: 1.2,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// pesanLagi: menambahkan seluruh item pesanan lama ke CartProvider, lalu
-/// pindah ke tab Menu. Fungsi publik agar bisa dipakai P3 di Beranda (#7).
-void pesanLagi(BuildContext context, Pesanan p) {
-  if (p.items.isEmpty) return;
-  final cart = context.read<CartProvider>();
-  for (final item in p.items) {
+/// menuTidakTersedia: item pesanan yang sekarang habis atau sudah dihapus dari
+/// menu. [katalog] null (belum termuat / gagal) → semua dianggap tersedia.
+/// Item data lama tanpa productId tidak bisa dicek → dianggap tersedia.
+List<CartItem> menuTidakTersedia(Pesanan p, Map<String, Produk>? katalog) {
+  if (katalog == null) return const [];
+  return [
+    for (final i in p.items)
+      if (i.productId.isNotEmpty && (katalog[i.productId]?.habis ?? true)) i,
+  ];
+}
+
+/// pesanLagi: membuka Keranjang TERPISAH yang hanya berisi menu dari pesanan
+/// lama — tidak digabung dengan keranjang utama. Keranjang ini punya
+/// CartProvider sendiri (metode pesanan, voucher, total, checkout) dan dibuang
+/// saat halamannya ditutup. Menu yang habis ([tidakTersedia] = productId) tidak
+/// ikut dimasukkan. Fungsi publik agar bisa dipakai P3 di Beranda (#7).
+void pesanLagi(
+  BuildContext context,
+  Pesanan p, {
+  Set<String> tidakTersedia = const {},
+}) {
+  final items = [
+    for (final i in p.items)
+      if (!tidakTersedia.contains(i.productId)) i,
+  ];
+  if (items.isEmpty) return;
+
+  final cart = CartProvider();
+  for (final item in items) {
     cart.addItem(item);
   }
-  NavigationPage.tab.value = NavigationPage.tabMenu;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
+
+  final messenger = ScaffoldMessenger.of(context);
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ChangeNotifierProvider<CartProvider>(
+        create: (_) => cart,
+        child: const CartPage(),
+      ),
+    ),
+  );
+
+  final dilewati = p.items.length - items.length;
+  messenger.hideCurrentSnackBar();
+  if (dilewati > 0) {
+    messenger.showSnackBar(
       SnackBar(
-        content: Text('${p.items.length} item ditambahkan ke keranjang.'),
+        content: Text('$dilewati menu yang habis tidak ikut ditambahkan.'),
       ),
     );
+  }
 }
