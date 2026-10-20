@@ -98,8 +98,8 @@ class _OrdersPageState extends State<OrdersPage>
   }
 }
 
-// _TabAktif: Menampilkan daftar pesanan aktif. Jika lebih dari satu,
-// pesanan diurutkan seperti accordion (bisa dilipat/buka).
+// _TabAktif: daftar pesanan aktif sebagai accordion baris datar.
+// Tepat satu yang terbuka; baris yang terbuka tidak bisa ditutup.
 class _TabAktif extends StatefulWidget {
   const _TabAktif();
 
@@ -110,8 +110,8 @@ class _TabAktif extends StatefulWidget {
 class _TabAktifState extends State<_TabAktif> {
   late Stream<List<Pesanan>> _stream = OrderRepository.streamAktif();
 
-  // State untuk Accordion: menyimpan ID pesanan yang sedang terbuka (expanded)
-  final Set<String> _expandedIds = {};
+  // ID pesanan yang sedang terbuka (null → pesanan pertama)
+  String? _terbuka;
 
   void _muatUlang() => setState(() => _stream = OrderRepository.streamAktif());
 
@@ -134,36 +134,21 @@ class _TabAktifState extends State<_TabAktif> {
 
         final daftarPesanan = snap.requireData;
 
-        // Secara default, buka accordion untuk pesanan pertama jika belum ada yang terbuka
-        if (_expandedIds.isEmpty && daftarPesanan.isNotEmpty) {
-          _expandedIds.add(daftarPesanan.first.id);
-        }
+        // Pesanan terbuka sudah selesai/batal (hilang dari stream) → buka yang pertama
+        final terbuka = daftarPesanan.any((p) => p.id == _terbuka)
+            ? _terbuka
+            : daftarPesanan.first.id;
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 170),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
           itemCount: daftarPesanan.length,
           itemBuilder: (context, index) {
             final pesanan = daftarPesanan[index];
-            final isExpanded = _expandedIds.contains(pesanan.id);
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: index == daftarPesanan.length - 1 ? 0 : 16,
-              ),
-              child: _KartuPesananAktif(
-                pesanan: pesanan,
-                isExpanded: isExpanded,
-                onToggle: () {
-                  setState(() {
-                    if (isExpanded) {
-                      _expandedIds.remove(pesanan.id);
-                    } else {
-                      _expandedIds.add(pesanan.id);
-                    }
-                  });
-                },
-                onBatalkan: () => _konfirmasiBatalkan(context, pesanan),
-              ),
+            return _KartuPesananAktif(
+              pesanan: pesanan,
+              isExpanded: pesanan.id == terbuka,
+              onToggle: () => setState(() => _terbuka = pesanan.id),
+              onBatalkan: () => _konfirmasiBatalkan(context, pesanan),
             );
           },
         );
@@ -217,8 +202,8 @@ class _TabAktifState extends State<_TabAktif> {
   }
 }
 
-// _KartuPesananAktif: Desain awal dikembalikan (kartu antrean cokelat penuh,
-// stepper vertikal, detail item), dibungkus dengan animasi Accordion (AnimatedSize).
+// _KartuPesananAktif: header baris datar (seperti Riwayat); saat terbuka
+// menampilkan kartu antrean, stepper, detail item (AnimatedSize).
 class _KartuPesananAktif extends StatelessWidget {
   final Pesanan pesanan;
   final bool isExpanded;
@@ -234,48 +219,48 @@ class _KartuPesananAktif extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Header ringkas (selalu tampil saat dilipat)
+    final item = pesanan.items.isNotEmpty ? pesanan.items.first : null;
+    final metode = pesanan.makanDiTempat
+        ? 'Meja ${pesanan.nomorMeja}'
+        : 'Ambil sendiri';
+
+    // Header baris datar; yang terbuka tidak bisa ditutup (onTap null)
     final header = InkWell(
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(24),
+      onTap: isExpanded ? null : onToggle,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.outline),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.divider)),
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: AppColors.tint,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.receipt_long_rounded,
-                color: AppColors.primary,
-              ),
+            ProductThumb(
+              size: 48,
+              nama: item?.nama,
+              url: item?.gambarUrl,
+              makanan: item?.makanan ?? false,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Antrean ${pesanan.nomor}', style: ts(16, 800)),
+                  Text('Antrean ${pesanan.nomor}', style: ts(14, 700)),
                   Text(
-                    statusPesanan[pesanan.status][0],
-                    style: ts(13, 600, color: AppColors.primary),
+                    '${statusPesanan[pesanan.status][0]} · $metode',
+                    style: ts(12, 500, color: AppColors.muted),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            Text(rp(pesanan.total), style: ts(14, 800)),
+            const SizedBox(width: 4),
             Icon(
               isExpanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
+              size: 20,
               color: AppColors.muted,
             ),
           ],
@@ -292,7 +277,7 @@ class _KartuPesananAktif extends StatelessWidget {
           curve: Curves.easeInOut,
           child: isExpanded
               ? Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 12, bottom: 16),
                   child: Column(
                     children: [
                       // 1. Kartu Antrean Cokelat

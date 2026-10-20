@@ -347,6 +347,7 @@ _barisPengaturan(Icons.confirmation_number_outlined, 'Voucher Saya',
 
 ### 3.6 Pesanan — Aktif (`screens/Pesanan-Aktif.png`, `source/Status.dc.html`)
 - Judul "Pesanan Saya" 24/800. Tab teks **Aktif | Riwayat** (tinggi 44, garis bawah 2 `primary` di tab aktif, garis dasar 1 `divider`).
+- **Daftar accordion**: tiap pesanan aktif = baris datar seperti Riwayat (padding 14 0, garis bawah `divider`, tanpa card): thumbnail 48 radius 10 (item pertama) · "Antrean A-014" 14/700 · "Diproses · Ambil sendiri" / "Diproses · Meja 7" 12/500 `muted` · kanan total 14/800 + chevron 20 `muted`. **Tepat satu terbuka** (default pesanan terbaru; bila yang terbuka selesai/batal → pesanan pertama). Ketuk baris lain → baris itu terbuka, yang lain menutup; baris yang terbuka tidak bisa ditutup. Isi yang terbuka (`AnimatedSize` 300ms, padding 12 atas · 16 bawah): kartu antrean, stepper, detail, tombol Batalkan.
 - **Kartu antrean** (radius 24, latar `primary`, teks `cream`, lingkaran deko `caramel` opacity 0.45): "Nomor antrean" 12/600 · **A-014** 48/800 · "Makan di tempat · Meja 7" 13 · badge status kanan (32 tinggi, latar `cream`, teks `primary` 13/800, mis. "Diproses").
 - **Card stepper status** (putih, radius 20, bayangan `card`): 5 langkah vertikal sesuai status Firestore —
   `menunggu_bayar` "Menunggu bayar" → `dibayar` "Dibayar" → `diproses` "Diproses" → `siap` "Siap diambil" → `selesai` "Selesai". (`batal` ditampilkan sebagai badge "Dibatalkan" di Riwayat.)
