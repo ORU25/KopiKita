@@ -362,9 +362,7 @@ class _KartuPesananAktif extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          p.makanDiTempat
-                              ? 'Makan di tempat · Meja ${p.nomorMeja}'
-                              : 'Ambil sendiri',
+                          p.makanDiTempat ? 'Makan di tempat' : 'Ambil sendiri',
                           style: ts(13, 500, color: AppColors.cream),
                         ),
                       ],
