@@ -1,9 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
+import '../services/notif_repository.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/notifikasi_view_model.dart';
 import '../widgets/state_views.dart';
 
 class NotificationPage extends StatefulWidget {
@@ -19,7 +19,7 @@ class _NotificationPageState extends State<NotificationPage> {
     super.initState();
     // Tandai semua sudah dibaca saat layar dibuka (titik merah hilang)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<NotifikasiViewModel>().tandaiSemuaDibaca();
+      NotifRepository.tandaiSemuaDibaca();
     });
   }
 
@@ -35,13 +35,13 @@ class _NotificationPageState extends State<NotificationPage> {
         title: Text('Notifikasi', style: ts(18, 800, ls: -0.3)),
       ),
       // Langsung tampilkan daftar notifikasi
-      body: Consumer<NotifikasiViewModel>(
-        builder: (context, vm, _) {
-          final snap = vm.keadaan;
-          final keadaan = keadaanStream(
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: NotifRepository.stream(),
+        builder: (context, snap) {
+          final keadaan = keadaanStream<QuerySnapshot<Map<String, dynamic>>>(
             snap,
-            onCoba: vm.muatUlang,
-            kosong: (d) => d.isEmpty,
+            onCoba: () => setState(() {}),
+            kosong: (d) => d.docs.isEmpty,
             tampilanKosong: const EmptyView(
               icon: Icons.notifications_none_rounded,
               judul: 'Belum ada notifikasi',
@@ -50,9 +50,8 @@ class _NotificationPageState extends State<NotificationPage> {
           );
           if (keadaan != null) return keadaan;
 
-          final daftar = snap.requireData;
           return ListView.separated(
-            itemCount: daftar.length,
+            itemCount: snap.data!.docs.length,
             separatorBuilder: (_, _) => const Divider(
               height: 1,
               color: AppColors.divider,
@@ -60,14 +59,16 @@ class _NotificationPageState extends State<NotificationPage> {
               endIndent: 20,
             ),
             itemBuilder: (context, i) {
-              final n = daftar[i];
-              final waktu = n.waktu;
+              final doc = snap.data!.docs[i];
+              final data = doc.data();
+              final waktu = (data['waktu'] as Timestamp?)?.toDate();
               final tglStr = waktu == null
                   ? ''
                   : DateFormat('d MMM, HH:mm', 'id_ID').format(waktu);
+              final dibaca = data['dibaca'] as bool? ?? false;
 
               return Container(
-                color: n.dibaca
+                color: dibaca
                     ? Colors.transparent
                     : AppColors.primary.withValues(alpha: 0.05),
                 child: ListTile(
@@ -83,12 +84,12 @@ class _NotificationPageState extends State<NotificationPage> {
                       size: 20,
                     ),
                   ),
-                  title: Text(n.judul, style: ts(14, 700)),
+                  title: Text(data['judul'] ?? '', style: ts(14, 700)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 2),
-                      Text(n.pesan, style: ts(13, 500)),
+                      Text(data['pesan'] ?? '', style: ts(13, 500)),
                       const SizedBox(height: 4),
                       Text(tglStr, style: ts(11, 500, color: AppColors.muted)),
                     ],

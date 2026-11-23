@@ -1,7 +1,7 @@
 // BarisMenu: baris datar satu menu (DESIGN.md 3.3), dipakai Menu, Cari, dan Favorit
 import 'package:flutter/material.dart';
 
-import '../domain/entities/produk.dart';
+import '../models/produk.dart';
 import '../screens/customize_page.dart';
 import '../theme/app_theme.dart';
 import 'common.dart';

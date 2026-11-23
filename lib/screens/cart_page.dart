@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
-import '../domain/entities/cart_item.dart';
-import '../viewmodels/cart_view_model.dart';
+import '../models/cart_item.dart';
+import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/state_views.dart';
@@ -23,7 +23,7 @@ class _CartPageState extends State<CartPage> {
   void initState() {
     super.initState();
     // Ambil tarif pajak terbaru dari config/menu (main.dart milik P2, tidak diubah)
-    context.read<CartViewModel>().muatConfig();
+    context.read<CartProvider>().muatConfig();
   }
 
   void _snack(String pesan) {
@@ -33,7 +33,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // _pesan: checkout (transaction) → buka tab Pesanan Aktif → tutup Keranjang
-  Future<void> _pesan(CartViewModel cart) async {
+  Future<void> _pesan(CartProvider cart) async {
     try {
       await cart.checkout();
       if (!mounted) return;
@@ -51,7 +51,7 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cart = context.watch<CartViewModel>();
+    final cart = context.watch<CartProvider>();
     final kosong = cart.items.isEmpty;
 
     return Scaffold(
@@ -88,7 +88,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // ---------- HEADER ----------
-  Widget _header(CartViewModel cart) {
+  Widget _header(CartProvider cart) {
     return Row(
       children: [
         RoundIconButton(
@@ -144,7 +144,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // ---------- METODE PESANAN ----------
-  Widget _metodePesanan(CartViewModel cart) {
+  Widget _metodePesanan(CartProvider cart) {
     return Row(
       children: [
         Expanded(
@@ -171,7 +171,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // ---------- DAFTAR ITEM ----------
-  Widget _kartuItem(CartViewModel cart) {
+  Widget _kartuItem(CartProvider cart) {
     final items = cart.items;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -190,7 +190,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // _barisItem: thumbnail 64 · nama · opsi · harga · stepper
-  Widget _barisItem(CartViewModel cart, CartItem item,
+  Widget _barisItem(CartProvider cart, CartItem item,
       {required bool terakhir}) {
     return Container(
       key: ValueKey(item.kunci), // Key unik agar gambar tidak tertukar
@@ -293,7 +293,7 @@ class _CartPageState extends State<CartPage> {
   // ---------- VOUCHER ----------
   // Kartu surface: "Pakai voucher" / "KODE diterapkan · Hemat Rp…" + Ganti.
   // Voucher tak lagi memenuhi syarat → "KODE belum berlaku" + alasan.
-  Widget _kartuVoucher(CartViewModel cart) {
+  Widget _kartuVoucher(CartProvider cart) {
     final alasan = cart.alasanVoucher;
     final ada = cart.voucher != null;
 
@@ -363,7 +363,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   // ---------- RINGKASAN ----------
-  Widget _ringkasan(CartViewModel cart) {
+  Widget _ringkasan(CartProvider cart) {
     return Container(
       padding: const EdgeInsets.all(16),
       // Card seperti "Pesananmu": judul di luar, surface + bayangan card
@@ -434,7 +434,7 @@ class _CartPageState extends State<CartPage> {
 
   // ---------- BAR BAWAH ----------
   // Sheet surface radius atas 28: total di kiri, tombol Pesan di kanan.
-  Widget _barBawah(CartViewModel cart) {
+  Widget _barBawah(CartProvider cart) {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,

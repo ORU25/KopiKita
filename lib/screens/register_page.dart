@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/auth_view_model.dart';
 import '../widgets/common.dart';
 import 'login_page.dart';
 
@@ -23,6 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _sandi = TextEditingController();
 
   bool _sembunyikan = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -35,22 +35,32 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _daftar() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Berhasil → AuthViewModel berstatus masuk; tumpukan halaman dibuat ulang
-    // untuk sesi baru (lihat MainApp), jadi RegisterPage ikut hilang.
-    final galat = await context.read<AuthViewModel>().daftar(
-      _nama.text,
-      _email.text,
-      _sandi.text,
-    );
-    if (galat == null || !mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(galat)));
+    setState(() => _loading = true);
+    try {
+      await AuthService.daftar(
+        nama: _nama.text,
+        email: _email.text,
+        password: _sandi.text,
+      );
+      // AuthGate sudah mengganti root ke NavigationPage karena
+      // authStateChanges() mengirim User baru. Kita hanya perlu menyingkirkan
+      // RegisterPage dari tumpukan agar NavigationPage terlihat.
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AuthService.pesanError(e))),
+        );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final loading = context.watch<AuthViewModel>().memproses;
     return AuthScaffold(
       judul: 'Daftar',
       subjudul: 'Buat akun untuk mulai memesan.',
@@ -110,7 +120,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.newPassword],
                 onFieldSubmitted: (_) {
-                  if (!loading) _daftar();
+                  if (!_loading) _daftar();
                 },
                 style: ts(14, 500),
                 decoration: InputDecoration(
@@ -143,8 +153,8 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: loading ? 'Memproses...' : 'Daftar',
-                onPressed: loading ? null : _daftar,
+                label: _loading ? 'Memproses...' : 'Daftar',
+                onPressed: _loading ? null : _daftar,
               ),
             ],
           ),

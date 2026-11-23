@@ -32,8 +32,11 @@ class ProfilRepositoryFirestore implements ProfilRepository {
       coba(() async => _ref?.update(data));
 
   @override
-  Future<Hasil<void>> ubah({required String nama, String? fotoUrl}) =>
-      _update({'nama': nama, 'fotoUrl': ?fotoUrl});
+  Future<Hasil<void>> ubah({required String nama, String? fotoUrl}) {
+    final data = <String, dynamic>{'nama': nama};
+    if (fotoUrl != null) data['fotoUrl'] = fotoUrl;
+    return _update(data);
+  }
 
   @override
   Future<Hasil<void>> setNotifikasi(bool aktif) =>

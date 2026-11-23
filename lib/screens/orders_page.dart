@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../config/dependensi.dart';
-import '../domain/entities/cart_item.dart';
-import '../domain/entities/pesanan.dart';
-import '../domain/entities/produk.dart';
-import '../viewmodels/cart_view_model.dart';
-import '../viewmodels/pesanan_view_model.dart';
-import '../viewmodels/produk_view_model.dart';
+import '../models/cart_item.dart';
+import '../models/pesanan.dart';
+import '../models/produk.dart';
+import '../providers/cart_provider.dart';
+import '../services/order_repository.dart';
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/state_views.dart';
@@ -109,18 +108,21 @@ class _TabAktif extends StatefulWidget {
 }
 
 class _TabAktifState extends State<_TabAktif> {
-  // ID pesanan yang sedang terbuka (null → pesanan pertama). State tampilan
-  // murni, jadi tetap di View (bukan di ViewModel).
+  late Stream<List<Pesanan>> _stream = OrderRepository.streamAktif();
+
+  // ID pesanan yang sedang terbuka (null → pesanan pertama)
   String? _terbuka;
+
+  void _muatUlang() => setState(() => _stream = OrderRepository.streamAktif());
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PesananAktifViewModel>(
-      builder: (context, vm, _) {
-        final snap = vm.keadaan;
+    return StreamBuilder<List<Pesanan>>(
+      stream: _stream,
+      builder: (context, snap) {
         final keadaan = keadaanStream<List<Pesanan>>(
           snap,
-          onCoba: vm.muatUlang,
+          onCoba: _muatUlang,
           kosong: (d) => d.isEmpty,
           tampilanKosong: const EmptyView(
             icon: Icons.receipt_long_outlined,
@@ -182,12 +184,21 @@ class _TabAktifState extends State<_TabAktif> {
     );
     if (yakin != true) return;
     if (!context.mounted) return;
-    // ViewModel → use case BatalkanPesanan (aturan "hanya saat menunggu bayar").
-    final pesan = await context.read<PesananAktifViewModel>().batalkan(p);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(pesan)));
+    try {
+      await OrderRepository.batalkan(p.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Pesanan dibatalkan.')));
+    } catch (e) {
+      if (!context.mounted) return;
+      final pesan = e is StateError
+          ? e.message
+          : 'Gagal membatalkan pesanan. Coba lagi.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(pesan)));
+    }
   }
 }
 
@@ -516,14 +527,21 @@ class _TabRiwayat extends StatefulWidget {
 }
 
 class _TabRiwayatState extends State<_TabRiwayat> {
+  late Stream<List<Pesanan>> _stream = OrderRepository.streamRiwayat();
+  // Stream produk: status Habis diperbarui realtime (toggle dari web Staf/Admin)
+  late final Stream<List<Produk>> _produk = ProductRepository.stream();
+
+  void _muatUlang() =>
+      setState(() => _stream = OrderRepository.streamRiwayat());
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<RiwayatPesananViewModel>(
-      builder: (context, vm, _) {
-        final snap = vm.keadaan;
+    return StreamBuilder<List<Pesanan>>(
+      stream: _stream,
+      builder: (context, snap) {
         final keadaan = keadaanStream<List<Pesanan>>(
           snap,
-          onCoba: vm.muatUlang,
+          onCoba: _muatUlang,
           kosong: (d) => d.isEmpty,
           tampilanKosong: const EmptyView(
             icon: Icons.history_rounded,
@@ -545,10 +563,10 @@ class _TabRiwayatState extends State<_TabRiwayat> {
 
         // Ketersediaan menu. Katalog belum termuat / gagal / kosong → null,
         // artinya semua menu dianggap tersedia (tidak memblokir Riwayat).
-        // Katalog dari ProdukViewModel: status Habis realtime (web Staf/Admin)
-        return Consumer<ProdukViewModel>(
-          builder: (context, produkVm, _) {
-            final data = produkVm.data;
+        return StreamBuilder<List<Produk>>(
+          stream: _produk,
+          builder: (context, produkSnap) {
+            final data = produkSnap.data;
             final katalog = data == null || data.isEmpty
                 ? null
                 : {for (final pr in data) pr.id: pr};
@@ -702,7 +720,7 @@ List<CartItem> menuTidakTersedia(Pesanan p, Map<String, Produk>? katalog) {
 
 /// pesanLagi: membuka Keranjang TERPISAH yang hanya berisi menu dari pesanan
 /// lama — tidak digabung dengan keranjang utama. Keranjang ini punya
-/// CartViewModel sendiri (metode pesanan, voucher, total, checkout) dan dibuang
+/// CartProvider sendiri (metode pesanan, voucher, total, checkout) dan dibuang
 /// saat halamannya ditutup. Menu yang habis ([tidakTersedia] = productId) tidak
 /// ikut dimasukkan. Fungsi publik agar bisa dipakai P3 di Beranda (#7).
 void pesanLagi(
@@ -716,7 +734,7 @@ void pesanLagi(
   ];
   if (items.isEmpty) return;
 
-  final cart = buatCartViewModel(context);
+  final cart = CartProvider();
   for (final item in items) {
     cart.addItem(item);
   }
@@ -725,7 +743,7 @@ void pesanLagi(
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => ChangeNotifierProvider<CartViewModel>(
+      builder: (_) => ChangeNotifierProvider<CartProvider>(
         create: (_) => cart,
         child: const CartPage(),
       ),

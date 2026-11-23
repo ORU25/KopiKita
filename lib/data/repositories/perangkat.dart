@@ -212,7 +212,9 @@ class JarakKedai {
 
   factory JarakKedai.dari(Posisi p) => JarakKedai(
     meter: jarakMeter(p.lintang, p.bujur, lintangKedai, bujurKedai),
-    arah: namaArah(arahDerajat(p.lintang, p.bujur, lintangKedai, bujurKedai)),
+    arah: namaArah(
+      arahDerajat(lintangKedai, bujurKedai, p.lintang, p.bujur),
+    ),
     akurasiMeter: p.akurasiMeter,
     palsu: p.palsu,
   );

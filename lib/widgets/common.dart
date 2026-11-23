@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../viewmodels/cart_view_model.dart';
+import '../providers/cart_provider.dart';
 import '../screens/cart_page.dart';
 import '../theme/app_theme.dart';
 
@@ -35,7 +35,7 @@ void segeraHadir(BuildContext context, String fitur) {
 }
 
 // rp: singkatan formatRupiah agar kode UI lebih ringkas
-String rp(int v) => CartViewModel.formatRupiah(v);
+String rp(int v) => CartProvider.formatRupiah(v);
 
 // PrimaryButton: tombol utama tinggi 52, radius 16, latar primary, teks putih 15/700
 class PrimaryButton extends StatelessWidget {
@@ -306,7 +306,7 @@ class AppBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cart = context.watch<CartViewModel>();
+    final cart = context.watch<CartProvider>();
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -367,7 +367,7 @@ Widget _ikonNav(IconData ikon, {bool aktif = false}) {
 }
 
 class _CartStrip extends StatelessWidget {
-  final CartViewModel cart;
+  final CartProvider cart;
   const _CartStrip({required this.cart});
 
   @override

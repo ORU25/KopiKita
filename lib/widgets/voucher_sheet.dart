@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../domain/entities/voucher.dart';
-import '../domain/entities/voucher_rules.dart';
-import '../viewmodels/cart_view_model.dart';
+import '../models/voucher.dart';
+import '../models/voucher_rules.dart';
+import '../providers/cart_provider.dart';
+import '../services/user_repo.dart';
+import '../services/voucher_repository.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/voucher_saya_view_model.dart';
 import 'common.dart';
 import 'state_views.dart';
 import 'voucher_card.dart';
@@ -14,9 +15,9 @@ import 'voucher_card.dart';
 // Daftar = users/{uid}.voucher × vouchers/{kode}; ada juga input kode manual.
 Future<void> bukaGantiVoucher(BuildContext context) {
   // Sheet berada di atas Navigator, di luar provider milik route Keranjang.
-  // CartViewModel milik pemanggil diteruskan agar Keranjang "Pesan lagi" yang
+  // CartProvider milik pemanggil diteruskan agar Keranjang "Pesan lagi" yang
   // terpisah tidak mengubah voucher di keranjang utama (dan sebaliknya).
-  final cart = context.read<CartViewModel>();
+  final cart = context.read<CartProvider>();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -25,7 +26,7 @@ Future<void> bukaGantiVoucher(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => ChangeNotifierProvider<CartViewModel>.value(
+    builder: (_) => ChangeNotifierProvider<CartProvider>.value(
       value: cart,
       child: const _GantiVoucherSheet(),
     ),
@@ -41,6 +42,7 @@ class _GantiVoucherSheet extends StatefulWidget {
 
 class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
   final TextEditingController _kode = TextEditingController();
+  late Future<List<Voucher>> _daftar = _muat();
   String? _galat;
   bool _proses = false;
 
@@ -50,14 +52,21 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
     super.dispose();
   }
 
-  // _pilih: validasi lewat CartViewModel; sukses → tutup sheet, gagal → tampilkan galat
+  Future<List<Voucher>> _muat() async {
+    final data = await UserRepo.ambil();
+    return VoucherRepository.ambilBanyak(UserRepo.voucherDari(data));
+  }
+
+  void _muatUlang() => setState(() => _daftar = _muat());
+
+  // _pilih: validasi lewat CartProvider; sukses → tutup sheet, gagal → tampilkan galat
   Future<void> _pilih(String kode) async {
     if (_proses) return;
     setState(() {
       _proses = true;
       _galat = null;
     });
-    final galat = await context.read<CartViewModel>().terapkanVoucher(kode);
+    final galat = await context.read<CartProvider>().terapkanVoucher(kode);
     if (!mounted) return;
     if (galat == null) {
       Navigator.pop(context);
@@ -70,13 +79,13 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
   }
 
   void _tanpaVoucher() {
-    context.read<CartViewModel>().lepasVoucher();
+    context.read<CartProvider>().lepasVoucher();
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final cart = context.watch<CartViewModel>();
+    final cart = context.watch<CartProvider>();
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -130,10 +139,10 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
           const SizedBox(height: 12),
           // Daftar voucher milik user
           Flexible(
-            child: Consumer<VoucherSayaViewModel>(
-              builder: (context, vm, _) {
-                final snap = vm.keadaan;
-                if (!snap.hasData && !snap.hasError) {
+            child: FutureBuilder<List<Voucher>>(
+              future: _daftar,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) {
                   return SizedBox(
                     height: MediaQuery.sizeOf(context).height * 0.5,
                     child: const LoadingView(),
@@ -149,7 +158,7 @@ class _GantiVoucherSheetState extends State<_GantiVoucherSheet> {
                           style: ts(13, 600, color: AppColors.muted),
                         ),
                         TextButton(
-                          onPressed: vm.muatUlang,
+                          onPressed: _muatUlang,
                           child: Text(
                             'Coba lagi',
                             style: ts(14, 700, color: AppColors.primary),
