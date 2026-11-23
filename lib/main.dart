@@ -1,10 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'config/dependensi.dart';
 import 'firebase_options.dart';
-import 'providers/cart_provider.dart';
+import 'viewmodels/auth_view_model.dart';
 import 'screens/account_page.dart';
 import 'screens/home_page.dart';
 import 'screens/login_page.dart';
@@ -15,20 +15,14 @@ import 'widgets/common.dart';
 
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'services/notif_pesanan.dart';
-import 'services/push_service.dart';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
     MultiProvider(
-      providers: [
-        // ChangeNotifierProvider: menyediakan instance CartProvider ke seluruh widget
-        // CartProvider akan memberi tahu listener ketika data keranjang berubah
-        ChangeNotifierProvider(create: (_) => CartProvider()),
-      ],
+      // Repository, use case & AuthViewModel (lihat config/dependensi.dart)
+      providers: buatPenyedia(),
       child: const MainApp(),
     ),
   );
@@ -40,10 +34,21 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uid = context.select<AuthViewModel, String?>((vm) => vm.uid);
     return MaterialApp(
       title: 'KopiKita',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // ViewModel milik sesi dipasang DI ATAS Navigator agar semua route
+      // (Keranjang, Kustomisasi, dll.) bisa membacanya. Key = uid: ganti akun
+      // → ViewModel & tumpukan halaman dibuat ulang (keranjang tidak terbawa).
+      builder: (context, child) => uid == null
+          ? child!
+          : MultiProvider(
+              key: ValueKey(uid),
+              providers: buatPenyediaSesi(),
+              child: child!,
+            ),
       home: FutureBuilder(
         future: _splashSelesai,
         builder: (context, snap) => snap.connectionState == ConnectionState.done
@@ -72,39 +77,39 @@ class SplashScreen extends StatelessWidget {
   }
 }
 
-// AuthGate: menentukan layar awal berdasarkan status login Firebase.
+// AuthGate: menentukan layar awal dari AuthViewModel.
 // Belum login → LoginPage. Sudah login → NavigationPage (Beranda).
-// ponytail: pakai authStateChanges() langsung, tidak perlu provider baru.
+// Pemantau status pesanan & push dinyalakan oleh AuthViewModel, bukan di sini.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const SplashScreen();
-        }
-        if (snap.hasData) {
-          // Pasang listener global notifikasi pesanan (idempoten)
-          NotifPesanan.pasang();
-          PushService.daftar();
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-
-            if (NavigationPage.tab.value != NavigationPage.tabBeranda) {
-              NavigationPage.tab.value = NavigationPage.tabBeranda;
-            }
-          });
-          return const NavigationPage();
-        }
-        // Belum login → lepas listener
-        NotifPesanan.lepas();
-        return const LoginPage();
-      },
-    );
+    return switch (context.watch<AuthViewModel>().status) {
+      StatusAuth.memeriksa => const SplashScreen(),
+      StatusAuth.keluar => const LoginPage(),
+      StatusAuth.masuk => const _BerandaSetelahMasuk(),
+    };
   }
+}
+
+// _BerandaSetelahMasuk: NavigationPage yang selalu dibuka di tab Beranda.
+class _BerandaSetelahMasuk extends StatefulWidget {
+  const _BerandaSetelahMasuk();
+
+  @override
+  State<_BerandaSetelahMasuk> createState() => _BerandaSetelahMasukState();
+}
+
+class _BerandaSetelahMasukState extends State<_BerandaSetelahMasuk> {
+  @override
+  void initState() {
+    super.initState();
+    NavigationPage.tab.value = NavigationPage.tabBeranda;
+  }
+
+  @override
+  Widget build(BuildContext context) => const NavigationPage();
 }
 
 // NavigationPage = PEMBUNGKUS BOTTOM NAVIGATION

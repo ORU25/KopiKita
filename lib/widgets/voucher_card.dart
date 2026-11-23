@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/voucher.dart';
+import '../domain/entities/voucher.dart';
 import '../theme/app_theme.dart';
 
 // KartuVoucherItem: baris voucher (kode, info, catatan status) untuk daftar vertikal.
