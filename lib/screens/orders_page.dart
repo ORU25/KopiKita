@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../domain/hasil.dart';
+import '../domain/repositories/order_repository.dart';
+import '../domain/repositories/product_repository.dart';
+import '../domain/use_cases/batalkan_pesanan.dart';
 import '../models/cart_item.dart';
 import '../models/pesanan.dart';
 import '../models/produk.dart';
 import '../providers/cart_provider.dart';
-import '../services/order_repository.dart';
-import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/state_views.dart';
@@ -108,12 +110,16 @@ class _TabAktif extends StatefulWidget {
 }
 
 class _TabAktifState extends State<_TabAktif> {
-  late Stream<List<Pesanan>> _stream = OrderRepository.streamAktif();
+  late Stream<List<Pesanan>> _stream = context
+      .read<OrderRepository>()
+      .streamAktif();
 
   // ID pesanan yang sedang terbuka (null → pesanan pertama)
   String? _terbuka;
 
-  void _muatUlang() => setState(() => _stream = OrderRepository.streamAktif());
+  void _muatUlang() => setState(
+    () => _stream = context.read<OrderRepository>().streamAktif(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -184,21 +190,22 @@ class _TabAktifState extends State<_TabAktif> {
     );
     if (yakin != true) return;
     if (!context.mounted) return;
-    try {
-      await OrderRepository.batalkan(p.id);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Pesanan dibatalkan.')));
-    } catch (e) {
-      if (!context.mounted) return;
-      final pesan = e is StateError
-          ? e.message
-          : 'Gagal membatalkan pesanan. Coba lagi.';
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(pesan)));
-    }
+    // Aturan "hanya saat menunggu bayar" ada di use case BatalkanPesanan (domain);
+    // kegagalan datang sebagai Hasil, bukan exception.
+    final hasil = await context.read<BatalkanPesanan>().jalankan(p);
+    if (!context.mounted) return;
+    final pesan = switch (hasil) {
+      Berhasil() => 'Pesanan dibatalkan.',
+      Gagal(:final kegagalan) => switch (kegagalan) {
+        AturanDilanggar(:final alasan) => alasan,
+        TanpaKoneksi() ||
+        TanpaIzin() ||
+        LayananBermasalah() => 'Gagal membatalkan pesanan. Coba lagi.',
+      },
+    };
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(pesan)));
   }
 }
 
@@ -527,12 +534,17 @@ class _TabRiwayat extends StatefulWidget {
 }
 
 class _TabRiwayatState extends State<_TabRiwayat> {
-  late Stream<List<Pesanan>> _stream = OrderRepository.streamRiwayat();
+  late Stream<List<Pesanan>> _stream = context
+      .read<OrderRepository>()
+      .streamRiwayat();
   // Stream produk: status Habis diperbarui realtime (toggle dari web Staf/Admin)
-  late final Stream<List<Produk>> _produk = ProductRepository.stream();
+  late final Stream<List<Produk>> _produk = context
+      .read<ProductRepository>()
+      .stream();
 
-  void _muatUlang() =>
-      setState(() => _stream = OrderRepository.streamRiwayat());
+  void _muatUlang() => setState(
+    () => _stream = context.read<OrderRepository>().streamRiwayat(),
+  );
 
   @override
   Widget build(BuildContext context) {

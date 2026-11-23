@@ -1,17 +1,17 @@
 import 'dart:async';
 
+import '../domain/repositories/order_repository.dart';
 import '../models/pesanan.dart';
 import 'notif_repository.dart';
-import 'order_repository.dart';
 
 class NotifPesanan {
   static final Map<String, int> _statusTerakhir = {};
   static StreamSubscription<List<Pesanan>>? _sub;
 
-  static void pasang() {
+  static void pasang(OrderRepository pesanan) {
     if (_sub != null) return;
     _statusTerakhir.clear();
-    _sub = OrderRepository.streamAktif().listen(_onData, onError: (_) {});
+    _sub = pesanan.streamAktif().listen(_onData, onError: (_) {});
   }
 
   // Batalkan langganan agar stream user lama tidak menulis notif ke akun berikutnya
