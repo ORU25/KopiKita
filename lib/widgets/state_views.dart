@@ -1,22 +1,16 @@
 // Tampilan keadaan data: memuat, error, kosong (DESIGN.md 3.3a)
 // Dipakai Menu, Beranda, Cari, dan Favorit agar semua keadaan konsisten.
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../domain/hasil.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/pesan_kegagalan.dart';
 
-// pesanErrorData: pesan Bahasa Indonesia yang ramah untuk error Firestore
-String pesanErrorData(Object e) {
-  if (e is FirebaseException) {
-    if (e.code == 'permission-denied') {
-      return 'Akses ke data ditolak. Coba keluar lalu masuk lagi.';
-    }
-    if (e.code == 'unavailable') {
-      return 'Tidak bisa terhubung ke server. Periksa koneksi internetmu.';
-    }
-  }
-  return 'Terjadi kesalahan saat memuat data. Coba lagi sebentar lagi.';
-}
+// pesanErrorData: pesan Bahasa Indonesia yang ramah untuk galat stream.
+// Repository sudah menerjemahkan galat Firebase menjadi Kegagalan.
+String pesanErrorData(Object e) =>
+    (e is Kegagalan && e is! LayananBermasalah ? pesanKegagalan(e) : null) ??
+    'Terjadi kesalahan saat memuat data. Coba lagi sebentar lagi.';
 
 // keadaanStream: pilih tampilan untuk snapshot stream yang BELUM berisi data siap pakai.
 // Mengembalikan null bila data ada dan tidak kosong → pemanggil menampilkan datanya.

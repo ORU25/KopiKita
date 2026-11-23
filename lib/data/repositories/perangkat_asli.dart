@@ -9,7 +9,10 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'perangkat.dart';
+import '../../domain/entities/foto_dipilih.dart';
+import '../../domain/entities/lokasi.dart';
+import '../../domain/hasil.dart';
+import '../../domain/repositories/perangkat_repository.dart';
 
 class LayananLokasiGeolocator implements LayananLokasi {
   const LayananLokasiGeolocator();

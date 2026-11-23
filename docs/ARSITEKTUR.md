@@ -67,11 +67,12 @@ lib/
 ├── domain/                    # ── CLEAN ARCHITECTURE: DOMAIN ──
 │   ├── hasil.dart             # Hasil<T> = Berhasil | Gagal; Kegagalan (TanpaKoneksi, TanpaIzin, ...)
 │   ├── entities/              # Produk, CartItem, Pesanan, Voucher, voucher_rules,
-│   │                          #   Profil, Notifikasi, MenuConfig
+│   │                          #   Profil, Notifikasi, MenuConfig, lokasi (Posisi, JarakKedai), FotoDipilih
 │   ├── repositories/          # KONTRAK: AuthRepository, ProfilRepository, ProductRepository,
 │   │                          #   OrderRepository, FavoritRepository, VoucherRepository,
 │   │                          #   NotifikasiRepository, MenuConfigRepository,
-│   │                          #   FotoRepository, PushRepository
+│   │                          #   FotoRepository, PushRepository,
+│   │                          #   perangkat_repository (LayananLokasi, PemilihFoto, PengaturanPerangkat)
 │   └── use_cases/             # BuatPesanan, BatalkanPesanan, UbahProfil, PantauStatusPesanan
 │
 ├── data/                      # ── CLEAN ARCHITECTURE: DATA ──
@@ -86,7 +87,8 @@ lib/
 │       ├── notifikasi_repository_firestore.dart# users/{uid}/notifikasi
 │       ├── menu_config_repository_firestore.dart # config/menu
 │       ├── foto_repository_cloudinary.dart     # REST API Cloudinary (paket http)
-│       └── push_repository_fcm.dart            # Firebase Cloud Messaging (izin notifikasi)
+│       ├── push_repository_fcm.dart            # Firebase Cloud Messaging (izin notifikasi)
+│       └── perangkat_asli.dart                 # geolocator (lokasi) + image_picker (kamera/galeri) + Pengaturan
 │
 ├── viewmodels/                # ── MVVM: VIEWMODEL ──
 │   ├── stream_view_model.dart # Basis: 1 stream → keadaan (memuat/data/galat) + muatUlang()
@@ -98,7 +100,8 @@ lib/
 │   ├── profil_view_model.dart
 │   ├── notifikasi_view_model.dart
 │   ├── pesanan_view_model.dart        # PesananAktifViewModel + RiwayatPesananViewModel
-│   └── voucher_saya_view_model.dart
+│   ├── voucher_saya_view_model.dart
+│   └── jarak_kedai_view_model.dart    # izin lokasi + jarak ke kedai
 │
 ├── screens/                   # ── MVVM: VIEW (halaman) ──
 ├── widgets/                   # ── MVVM: VIEW (komponen) ──
@@ -106,9 +109,10 @@ lib/
 └── seed.dart                  # Skrip pengisi data awal (alat bantu, BUKAN bagian aplikasi)
 
 test/
-├── fakes/                     # Repository PALSU (di memori) untuk tes
+├── fakes/                     # Repository PALSU (di memori) + perangkat_palsu.dart (lokasi/foto)
 ├── cart_view_model_test.dart  # Tes ViewModel tanpa layar
-├── viewmodels/                # Tes AuthViewModel, ProfilViewModel
+├── viewmodels/                # Tes AuthViewModel, ProfilViewModel, JarakKedaiViewModel
+├── perangkat_test.dart        # Tes jarak/arah/pesan izin dengan perangkat palsu
 ├── domain/use_cases/          # Tes use case dengan data palsu
 └── data/                      # Tes repository REST dengan MockClient (tanpa internet)
 ```
@@ -132,6 +136,7 @@ Pasangan View ↔ ViewModel:
 | `main.dart` → `AuthGate` | `AuthViewModel` (status login) |
 | `login_page.dart`, `register_page.dart` | `AuthViewModel` (`masuk`, `daftar`, `kirimResetSandi`, `memproses`) |
 | `home_page.dart` | `ProdukViewModel` (Paling laris), `ProfilViewModel` (sapaan), `NotifikasiViewModel` (titik merah), `CartViewModel` (metode pesan) |
+| `widgets/kartu_jarak_kedai.dart` (Beranda) | `JarakKedaiViewModel` (izin lokasi, jarak, Buka Pengaturan) |
 | `menu_page.dart`, `search_page.dart` | `ProdukViewModel`, `FavoritViewModel`, `CartViewModel` |
 | `favorite_page.dart` | `ProdukViewModel` × `FavoritViewModel` |
 | `widgets/favorit.dart` (tombol hati) | `FavoritViewModel.toggle` |
@@ -141,7 +146,7 @@ Pasangan View ↔ ViewModel:
 | `orders_page.dart` (Riwayat) | `RiwayatPesananViewModel` + `ProdukViewModel` (status Habis) |
 | `notification_page.dart` | `NotifikasiViewModel` |
 | `promo_page.dart` (Voucher Saya) | `VoucherSayaViewModel` |
-| `account_page.dart` | `ProfilViewModel` (profil, toggle notifikasi, simpan profil), `AuthViewModel` (ubah sandi, keluar) |
+| `account_page.dart` | `ProfilViewModel` (profil, toggle + izin notifikasi, kamera/galeri, simpan profil), `AuthViewModel` (ubah sandi, keluar) |
 
 **Yang tetap di View** (bukan ViewModel) adalah state tampilan murni: tab aktif, chip kategori, isi `TextEditingController`, baris accordion yang terbuka, dan header yang mengecil saat scroll. Semua ini tidak ada hubungannya dengan data atau aturan bisnis.
 
@@ -294,7 +299,8 @@ Saat app ditutup: kopikita-web mengirim push FCM ke token yang disimpan PushRepo
 
 ```
 AccountPage → sheet Edit profil
-   pilih foto → image_picker (galeri)  [FITUR PERANGKAT] → validasi format & ukuran di View
+   pilih foto → ProfilViewModel.pilihFoto(kamera/galeri) → PemilihFoto  [FITUR PERANGKAT, lihat 6.2]
+              → validasi format & ukuran (FotoDipilih.alasanDitolak, domain)
    Simpan     → ProfilViewModel.simpanProfil(nama, fotoBaru)
        → UbahProfil.jalankan()                  ← USE CASE
            • nama < 2 karakter → Gagal(AturanDilanggar)
@@ -319,33 +325,78 @@ status = keluar → AuthGate menampilkan LoginPage; VM sesi dibuang.
 
 ## 6. Fitur perangkat & izin akses
 
-| Fitur | Paket | Izin | Lokasi kode | Lapisan |
-|---|---|---|---|---|
-| **Pilih foto profil dari galeri** | `image_picker` | Android 13+: pemilih foto sistem, tanpa izin runtime. iOS: lihat catatan di bawah. | `screens/account_page.dart` → `_pilihFoto()` (`ImageSource.gallery`, `maxWidth: 512`, `imageQuality: 85`, validasi JPG/PNG/WEBP & ≤ 2 MB) | View |
-| **Unggah foto** | `http` (REST multipart) | `android.permission.INTERNET` | `data/repositories/foto_repository_cloudinary.dart` | Data (di balik kontrak `FotoRepository`) |
-| **Push notification** | `firebase_messaging` | `android.permission.POST_NOTIFICATIONS` (Android 13+), diminta lewat `requestPermission()` | `data/repositories/push_repository_fcm.dart` | Data (di balik kontrak `PushRepository`), dipanggil `AuthViewModel` |
-| **Akses internet** (Firebase, Cloudinary) | – | `android.permission.INTERNET` | `android/app/src/main/AndroidManifest.xml` | Konfigurasi |
+Fitur perangkat mengikuti pola yang sama dengan Firebase: **kontrak di domain, implementasi asli di data, ViewModel di tengah, View hanya menampilkan.**
 
-Izin ditulis di `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.INTERNET"/>
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+```
+View                          ViewModel                    Domain (kontrak)            Data (asli)
+kartu_jarak_kedai.dart  ──▶  JarakKedaiViewModel   ──▶  LayananLokasi        ◀──  LayananLokasiGeolocator (geolocator)
+account_page.dart       ──▶  ProfilViewModel       ──▶  PemilihFoto          ◀──  PemilihFotoImagePicker  (image_picker)
+  (foto & notifikasi)                              ──▶  PengaturanPerangkat  ◀──  PengaturanPerangkatAsli (Pengaturan HP)
+                                                   ──▶  PushRepository       ◀──  PushRepositoryFcm       (firebase_messaging)
 ```
 
-Penanganan izin yang sudah ada:
+| Fitur | Paket | Izin (Android / iOS) | Kontrak → implementasi | ViewModel → View |
+|---|---|---|---|---|
+| **Jarak & arah ke kedai** | `geolocator` | `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` / `NSLocationWhenInUseUsageDescription` | `LayananLokasi` → `LayananLokasiGeolocator` | `JarakKedaiViewModel` → `KartuJarakKedai` (Beranda) |
+| **Foto profil dari kamera** | `image_picker` | Tanpa izin `CAMERA` di Manifest (memakai aplikasi kamera bawaan) / `NSCameraUsageDescription` | `PemilihFoto` → `PemilihFotoImagePicker` | `ProfilViewModel.pilihFoto(dariKamera: true)` → sheet Edit profil |
+| **Foto profil dari galeri** | `image_picker` | Pemilih foto sistem / `NSPhotoLibraryUsageDescription` | `PemilihFoto` → `PemilihFotoImagePicker` | `ProfilViewModel.pilihFoto(dariKamera: false)` |
+| **Buka Pengaturan HP** | `geolocator` | – | `PengaturanPerangkat` → `PengaturanPerangkatAsli` | dipakai `JarakKedaiViewModel` & `ProfilViewModel` |
+| **Push notification** | `firebase_messaging` | `POST_NOTIFICATIONS` (Android 13+) | `PushRepository` → `PushRepositoryFcm` | `AuthViewModel` (daftar token), `ProfilViewModel.setNotifikasi` (minta izin) |
+| **Unggah foto** | `http` (REST) | `INTERNET` | `FotoRepository` → `FotoRepositoryCloudinary` | use case `UbahProfil` |
 
-- **Notifikasi ditolak:** `PushRepositoryFcm.daftar()` membungkus `requestPermission()` dan `getToken()` dengan `try/catch`. Aplikasi tetap jalan, hanya tanpa push. Lonceng di Beranda tetap terisi karena berasal dari Firestore, bukan dari push.
-- **Batal memilih foto:** `pickImage` mengembalikan `null`, lalu fungsi berhenti tanpa galat.
-- **Foto tidak valid:** format atau ukuran yang salah ditolak dengan pesan di sheet.
+Lokasi kode:
 
-Hal yang **belum** ada dibanding ketentuan Pertemuan 13:
+| Lapisan | File |
+|---|---|
+| Domain: entitas | `domain/entities/lokasi.dart` (`Posisi`, `JarakKedai`, `jarakMeter` haversine, `arahDerajat`, `namaArah`, `formatJarak`, koordinat kedai), `domain/entities/foto_dipilih.dart` (`FotoDipilih` + aturan format/ukuran) |
+| Domain: kontrak | `domain/repositories/perangkat_repository.dart` (`LayananLokasi`, `PemilihFoto`, `PengaturanPerangkat`), `domain/repositories/push_repository.dart` |
+| Domain: kegagalan | `domain/hasil.dart`: `LayananLokasiMati`, `IzinDitolak(fitur)`, `IzinDiblokir(fitur)`, `PerangkatTidakMendukung`, `Dibatalkan`, `WaktuHabis`, `PemilihSibuk`, `GangguanPerangkat` |
+| Data | `data/repositories/perangkat_asli.dart` (satu-satunya file yang mengimpor `geolocator`/`image_picker` dan menerjemahkan exception-nya), `data/repositories/push_repository_fcm.dart` |
+| ViewModel | `viewmodels/jarak_kedai_view_model.dart`, `viewmodels/profil_view_model.dart` |
+| View | `widgets/kartu_jarak_kedai.dart`, `screens/account_page.dart` |
+| Pesan untuk pengguna | `viewmodels/pesan_kegagalan.dart` (`Dibatalkan` → tanpa pesan) |
+| Palsu untuk tes | `test/fakes/perangkat_palsu.dart` (`LayananLokasiPalsu` + `SkenarioLokasi`, `PemilihFotoPalsu`, `PengaturanPerangkatPalsu`) |
 
-- Kamera (`ImageSource.camera`) dan opsi pilihan "Kamera / Galeri".
-- Lokasi (`geolocator`).
-- Penanganan status izin **ditolak permanen / diblokir**, misalnya dialog yang mengarahkan ke Pengaturan.
-- Pemilih foto yang dibungkus kontrak (mis. `PemilihFoto`) agar bisa dites dengan data palsu. Saat ini `ImagePicker` dipanggil langsung dari View.
-- iOS: kunci `NSPhotoLibraryUsageDescription` (dan `NSCameraUsageDescription` kalau kamera ditambahkan) belum ada di `ios/Runner/Info.plist`.
+### 6.1 Alur izin lokasi (sopan)
+
+```
+Beranda: KartuJarakKedai → keadaan BelumDiminta (penjelasan manfaat + privasi, BELUM ada dialog)
+  ketuk "Cek jarak ke kedai" → JarakKedaiViewModel.cari() → Mencari
+     → LayananLokasi.posisiSekarang()
+         1. sakelar Lokasi mati?        → Gagal(LayananLokasiMati)  → tombol "Nyalakan Lokasi"
+         2. checkPermission / request   → denied        → Gagal(IzinDitolak)   → tombol "Coba lagi"
+                                        → deniedForever → Gagal(IzinDiblokir)  → tombol "Buka Pengaturan"
+         3. getCurrentPosition (20 dtk) → timeout       → Gagal(WaktuHabis)
+     → Berhasil(Posisi) → JarakKedai.dari(posisi) → Ditemukan (jarak, arah, akurasi, peringatan GPS palsu)
+  kembali dari Pengaturan (AppLifecycleListener.onResume) → vm.saatKembali() → cek ulang otomatis
+  "Buka di peta" → vm.alamatPeta → url_launcher (selalu tersedia, tanpa izin)
+```
+
+### 6.2 Alur kamera / galeri
+
+```
+Sheet Edit profil → ketuk ikon kamera → pilih "Ambil dengan kamera" / "Pilih dari galeri"
+   (bila perangkat tanpa kamera, langsung galeri)
+   → ProfilViewModel.pilihFoto(dariKamera)
+       → PemilihFoto.ambil()         batal → Dibatalkan (tanpa pesan)
+                                     izin kamera/galeri diblokir → IzinDiblokir → tombol "Buka Pengaturan"
+                                     pemilih masih terbuka → PemilihSibuk
+       → FotoDipilih.alasanDitolak() format bukan JPG/PNG/WEBP atau > 2 MB → pesan
+   → foto pratinjau → Simpan → use case UbahProfil → FotoRepository.unggah (Cloudinary) → ProfilRepository.ubah
+Android: saat sheet dibuka, ProfilViewModel.fotoHilang() memulihkan foto bila aplikasi sempat dimatikan sistem saat kamera terbuka.
+```
+
+### 6.3 Alur izin notifikasi
+
+```
+Login → AuthViewModel → PushRepository.daftar(): simpan token HANYA bila izin sudah ada (tanpa dialog)
+Akun → nyalakan "Notifikasi pesanan" → ProfilViewModel.setNotifikasi(true)
+   → PushRepository.mintaIzin() (dialog Android 13+)
+   → ditolak → SnackBar "Izin notifikasi belum diberikan..." + aksi "Pengaturan"
+   → toggle tetap disimpan; lonceng di Beranda tetap terisi (dari Firestore, bukan push)
+```
+
+Semua perilaku di atas diuji tanpa HP di `test/perangkat_test.dart` dan `test/viewmodels/view_models_test.dart` memakai versi palsu.
 
 ---
 
@@ -364,7 +415,8 @@ expect(cart.checkout(), throwsA(isA<CheckoutException>()));   // tanpa Firebase,
 | File tes | Yang diuji | Lapisan |
 |---|---|---|
 | `test/cart_view_model_test.dart`, `test/widget_test.dart` | Total, voucher, checkout, config | ViewModel (MVVM) |
-| `test/viewmodels/view_models_test.dart` | `AuthViewModel`, `ProfilViewModel` | ViewModel (MVVM) |
+| `test/viewmodels/view_models_test.dart` | `AuthViewModel`, `ProfilViewModel` (izin notifikasi, kamera/galeri), `JarakKedaiViewModel` (izin lokasi) | ViewModel (MVVM) |
+| `test/perangkat_test.dart` | Haversine, arah, format jarak, pesan izin, perangkat palsu | Domain (fitur perangkat) |
 | `test/domain/use_cases/*` | `BuatPesanan`, `BatalkanPesanan`, `UbahProfil`, `PantauStatusPesanan` | Domain |
 | `test/data/foto_repository_cloudinary_test.dart` | REST Cloudinary dengan `MockClient` | Data |
 
@@ -378,4 +430,4 @@ Jalankan dengan `flutter test`.
 - **MVVM** = cara menata UI: **View** (`screens/`, `widgets/`) ↔ **ViewModel** (`viewmodels/`, `ChangeNotifier` + `provider`) ↔ **Model** (`domain/entities/`).
 - **Alur data:** View → ViewModel → use case → kontrak repository → implementasi Firebase → `Hasil` → ViewModel (`notifyListeners`) → View digambar ulang.
 - **Galat** diterjemahkan sekali di `data/firebase_kegagalan.dart` menjadi `Kegagalan`, lalu menjadi kalimat Indonesia di `viewmodels/pesan_kegagalan.dart`.
-- **Fitur perangkat:** galeri foto (`image_picker`), izin notifikasi + push (`firebase_messaging`), dan internet. Kamera dan lokasi belum ada.
+- **Fitur perangkat:** lokasi/jarak ke kedai (`geolocator`), kamera & galeri (`image_picker`), izin notifikasi + push (`firebase_messaging`), semuanya di balik kontrak domain + ViewModel, lengkap dengan alur izin ditolak/diblokir → Pengaturan.
