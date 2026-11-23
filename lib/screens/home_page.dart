@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/produk.dart';
 import '../providers/cart_provider.dart';
-import '../services/product_repository.dart';
+import '../domain/repositories/product_repository.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -35,12 +35,13 @@ class _HomePageState extends State<HomePage> {
   // State: _promoAktif menyimpan index kartu promo yang sedang tampil (untuk dot)
   int _promoAktif = 0;
   // State: _produk = stream produk untuk "Paling laris"; dibuat ulang saat "Coba lagi"
-  Stream<List<Produk>> _produk = ProductRepository.stream();
+  late Stream<List<Produk>> _produk = context.read<ProductRepository>().stream();
   // _user: stream users/{uid} untuk sapaan "Hai, {nama}" (null bila belum login)
   final _user = UserRepo.stream();
 
   // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
+  void _muatUlang() =>
+      setState(() => _produk = context.read<ProductRepository>().stream());
 
   // _namaDepan: kata pertama nama lengkap agar sapaan muat satu baris
   String _namaDepan(String nama) {

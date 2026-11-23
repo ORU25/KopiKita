@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../domain/repositories/product_repository.dart';
 import '../models/produk.dart';
-import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/favorit.dart';
@@ -26,7 +27,7 @@ class _SearchPageState extends State<SearchPage> {
   // State: _kata = kata kunci (sudah di-trim dan huruf kecil)
   String _kata = '';
   // State: _produk = stream produk; dibuat ulang saat "Coba lagi"
-  Stream<List<Produk>> _produk = ProductRepository.stream();
+  late Stream<List<Produk>> _produk = context.read<ProductRepository>().stream();
 
   @override
   void dispose() {
@@ -35,7 +36,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
+  void _muatUlang() =>
+      setState(() => _produk = context.read<ProductRepository>().stream());
 
   // _hapus: kosongkan kolom pencarian
   void _hapus() {

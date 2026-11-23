@@ -1,21 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/produk.dart';
+import '../../domain/repositories/product_repository.dart';
+import '../../models/produk.dart';
 
-/// ProductRepository: akses koleksi products/{id} (realtime).
+/// ProductRepositoryFirestore: implementasi ProductRepository di atas koleksi
+/// products/{id} (realtime).
 /// Menu, Beranda (Paling laris), Cari, dan Favorit memakai stream ini lewat
-/// StreamBuilder — tanpa provider baru. Perubahan dari web Staf/Admin
-/// (mis. toggle Habis) langsung sampai ke layar.
-class ProductRepository {
-  static final _db = FirebaseFirestore.instance;
+/// StreamBuilder. Perubahan dari web Staf/Admin (mis. toggle Habis) langsung
+/// sampai ke layar.
+class ProductRepositoryFirestore implements ProductRepository {
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
-  /// Stream seluruh produk, terurut menurut `urutan` lalu nama.
-  /// Setiap pemanggilan membuat stream BARU: simpan hasilnya di State
-  /// (jangan panggil di build) agar StreamBuilder tidak berlangganan ulang.
-  ///
   /// ponytail: diurutkan di klien (bukan orderBy) supaya dokumen tanpa
   /// field `urutan` tetap tampil; katalog kecil jadi aman.
-  static Stream<List<Produk>> stream() {
+  @override
+  Stream<List<Produk>> stream() {
     return _db.collection('products').snapshots().map((snap) {
       final daftar = <Produk>[];
       for (final d in snap.docs) {

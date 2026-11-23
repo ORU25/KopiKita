@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/produk.dart';
 import '../providers/cart_provider.dart';
-import '../services/product_repository.dart';
+import '../domain/repositories/product_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/favorit.dart';
@@ -29,14 +29,15 @@ class _MenuPageState extends State<MenuPage> {
   // State: _kategoriAktif = index chip kategori terpilih
   int _kategoriAktif = 0;
   // State: _produk = stream produk; dibuat ulang saat "Coba lagi"
-  Stream<List<Produk>> _produk = ProductRepository.stream();
+  late Stream<List<Produk>> _produk = context.read<ProductRepository>().stream();
   // _kunciSeksi: GlobalKey tiap header kategori untuk scroll ke seksi
   final Map<String, GlobalKey> _kunciSeksi = {
     for (final k in kategoriMenu) k: GlobalKey(),
   };
 
   // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
+  void _muatUlang() =>
+      setState(() => _produk = context.read<ProductRepository>().stream());
 
   // _onScroll: ganti bentuk header berdasarkan offset scroll
   // Histeresis: collapse saat > 60, expand lagi saat < 8 (agar tidak berkedip)

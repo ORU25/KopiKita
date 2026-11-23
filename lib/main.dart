@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'config/dependensi.dart';
+import 'domain/repositories/order_repository.dart';
 import 'firebase_options.dart';
 import 'providers/cart_provider.dart';
 import 'screens/account_page.dart';
@@ -28,6 +30,8 @@ Future<void> main() async {
         // ChangeNotifierProvider: menyediakan instance CartProvider ke seluruh widget
         // CartProvider akan memberi tahu listener ketika data keranjang berubah
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        // Repository & use case (kontrak di domain/, implementasi di data/)
+        ...buatPenyedia(),
       ],
       child: const MainApp(),
     ),
@@ -88,7 +92,7 @@ class AuthGate extends StatelessWidget {
         }
         if (snap.hasData) {
           // Pasang listener global notifikasi pesanan (idempoten)
-          NotifPesanan.pasang();
+          NotifPesanan.pasang(context.read<OrderRepository>());
           PushService.daftar();
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
