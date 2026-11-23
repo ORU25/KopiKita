@@ -44,7 +44,8 @@ class CartItem {
       ukuran,
       suhu,
       'Gula ${gula.toLowerCase()}',
-      if (suhu == 'Es') 'Es ${es.toLowerCase()}', // Level es hanya untuk minuman es
+      if (suhu == 'Es')
+        'Es ${es.toLowerCase()}', // Level es hanya untuk minuman es
       ...addOn.map((a) => '+ $a'),
     ];
     return bagian.join(' · ');
@@ -78,33 +79,33 @@ class CartItem {
 
   // toMap: satu elemen array `items` di dokumen orders/{id}
   Map<String, dynamic> toMap() => {
-        'productId': productId,
-        'gambarUrl': gambarUrl,
-        'nama': nama,
-        'harga': harga,
-        'jumlah': jumlah,
-        'makanan': makanan,
-        'ukuran': ukuran,
-        'suhu': suhu,
-        'gula': gula,
-        'es': es,
-        'addOn': addOn,
-        'catatan': catatan,
-      };
+    'productId': productId,
+    'gambarUrl': gambarUrl,
+    'nama': nama,
+    'harga': harga,
+    'jumlah': jumlah,
+    'makanan': makanan,
+    'ukuran': ukuran,
+    'suhu': suhu,
+    'gula': gula,
+    'es': es,
+    'addOn': addOn,
+    'catatan': catatan,
+  };
 
   // fromMap: kebalikan toMap (dipakai Pesanan.fromMap & "Pesan lagi")
   factory CartItem.fromMap(Map<String, dynamic> m) => CartItem(
-        productId: m['productId'] ?? '',
-        gambarUrl: m['gambarUrl'] ?? '',
-        nama: m['nama'] ?? '',
-        harga: (m['harga'] ?? 0) as int,
-        jumlah: (m['jumlah'] ?? 1) as int,
-        makanan: m['makanan'] ?? false,
-        ukuran: m['ukuran'] ?? 'Regular',
-        suhu: m['suhu'] ?? 'Es',
-        gula: m['gula'] ?? 'Normal',
-        es: m['es'] ?? 'Normal',
-        addOn: List<String>.from(m['addOn'] ?? const []),
-        catatan: m['catatan'] ?? '',
-      );
+    productId: m['productId'] ?? '',
+    gambarUrl: m['gambarUrl'] ?? '',
+    nama: m['nama'] ?? '',
+    harga: (m['harga'] ?? 0) as int,
+    jumlah: (m['jumlah'] ?? 1) as int,
+    makanan: m['makanan'] ?? false,
+    ukuran: m['ukuran'] ?? 'Regular',
+    suhu: m['suhu'] ?? 'Es',
+    gula: m['gula'] ?? 'Normal',
+    es: m['es'] ?? 'Normal',
+    addOn: List<String>.from(m['addOn'] ?? const []),
+    catatan: m['catatan'] ?? '',
+  );
 }

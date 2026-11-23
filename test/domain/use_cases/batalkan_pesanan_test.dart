@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:kopikita/domain/hasil.dart';
 import 'package:kopikita/domain/use_cases/batalkan_pesanan.dart';
-import 'package:kopikita/models/pesanan.dart';
+import 'package:kopikita/domain/entities/pesanan.dart';
 
 import '../../fakes/fake_order_repository.dart';
 

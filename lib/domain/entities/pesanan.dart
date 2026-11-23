@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'cart_item.dart';
 
 // statusPesanan: 5 langkah status pesanan untuk stepper (index 0–4)
@@ -14,7 +12,14 @@ const statusPesanan = [
 
 // statusKode: nilai field `status` di Firestore, index sama dengan statusPesanan.
 // Index 5 = "batal" (tidak ada di stepper, hanya badge "Dibatalkan" di Riwayat)
-const statusKode = ['menunggu_bayar', 'dibayar', 'diproses', 'siap', 'selesai', 'batal'];
+const statusKode = [
+  'menunggu_bayar',
+  'dibayar',
+  'diproses',
+  'siap',
+  'selesai',
+  'batal',
+];
 const statusBatal = 5;
 
 // Pesanan: model data pesanan (koleksi Firestore `orders/{id}`)
@@ -51,37 +56,37 @@ class Pesanan {
 
   // fromMap: membuat Pesanan dari dokumen Firestore
   factory Pesanan.fromMap(String id, Map<String, dynamic> m) => Pesanan(
-        id: id,
-        uid: m['uid'] ?? '',
-        nomor: m['nomor'] ?? '',
-        makanDiTempat: m['makanDiTempat'] ?? false,
-        nomorMeja: (m['nomorMeja'] ?? 0) as int,
-        status: statusKode.indexOf(m['status'] ?? 'menunggu_bayar'),
-        items: [
-          for (final i in (m['items'] as List? ?? []))
-            CartItem.fromMap(Map<String, dynamic>.from(i)),
-        ],
-        subtotal: (m['subtotal'] ?? 0) as int,
-        diskon: (m['diskon'] ?? 0) as int,
-        pajak: (m['pajak'] ?? 0) as int,
-        total: (m['total'] ?? 0) as int,
-        voucher: m['voucher'],
-        createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
-      );
+    id: id,
+    uid: m['uid'] ?? '',
+    nomor: m['nomor'] ?? '',
+    makanDiTempat: m['makanDiTempat'] ?? false,
+    nomorMeja: (m['nomorMeja'] ?? 0) as int,
+    status: statusKode.indexOf(m['status'] ?? 'menunggu_bayar'),
+    items: [
+      for (final i in (m['items'] as List? ?? []))
+        CartItem.fromMap(Map<String, dynamic>.from(i)),
+    ],
+    subtotal: (m['subtotal'] ?? 0) as int,
+    diskon: (m['diskon'] ?? 0) as int,
+    pajak: (m['pajak'] ?? 0) as int,
+    total: (m['total'] ?? 0) as int,
+    voucher: m['voucher'],
+    createdAt: m['createdAt'] as DateTime?,
+  );
 
   // toMap: data untuk disimpan ke Firestore.
   // createdAt/updatedAt tidak ikut — isi dengan FieldValue.serverTimestamp() saat menulis.
   Map<String, dynamic> toMap() => {
-        'uid': uid,
-        'nomor': nomor,
-        'makanDiTempat': makanDiTempat,
-        'nomorMeja': makanDiTempat ? nomorMeja : null,
-        'items': [for (final i in items) i.toMap()],
-        'subtotal': subtotal,
-        'diskon': diskon,
-        'pajak': pajak,
-        'total': total,
-        'voucher': voucher,
-        'status': statusKode[status],
-      };
+    'uid': uid,
+    'nomor': nomor,
+    'makanDiTempat': makanDiTempat,
+    'nomorMeja': makanDiTempat ? nomorMeja : null,
+    'items': [for (final i in items) i.toMap()],
+    'subtotal': subtotal,
+    'diskon': diskon,
+    'pajak': pajak,
+    'total': total,
+    'voucher': voucher,
+    'status': statusKode[status],
+  };
 }

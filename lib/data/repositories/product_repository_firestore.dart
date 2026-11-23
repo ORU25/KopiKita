@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/repositories/product_repository.dart';
-import '../../models/produk.dart';
+import '../../domain/entities/produk.dart';
+import '../firebase_kegagalan.dart';
 
 /// ProductRepositoryFirestore: implementasi ProductRepository di atas koleksi
 /// products/{id} (realtime).
@@ -29,6 +30,6 @@ class ProductRepositoryFirestore implements ProductRepository {
         return u != 0 ? u : a.nama.compareTo(b.nama);
       });
       return daftar;
-    });
+    }).terjemahkanGalat();
   }
 }

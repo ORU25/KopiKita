@@ -23,8 +23,9 @@ extension VoucherRules on Voucher {
   // hitungDiskon: "persen" = nilai% dari subtotal, selain itu potongan rupiah.
   // Diskon tidak pernah melebihi subtotal.
   int hitungDiskon(int subtotal) {
-    final mentah =
-        tipe == 'potongan' ? nilai : (subtotal * nilai / 100).round();
+    final mentah = tipe == 'potongan'
+        ? nilai
+        : (subtotal * nilai / 100).round();
     return mentah.clamp(0, subtotal).toInt();
   }
 }

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
-import '../models/produk.dart';
-import '../providers/cart_provider.dart';
-import '../domain/repositories/product_repository.dart';
-import '../services/user_repo.dart';
+import '../domain/entities/produk.dart';
+import '../viewmodels/cart_view_model.dart';
+import '../viewmodels/produk_view_model.dart';
+import '../viewmodels/notifikasi_view_model.dart';
+import '../viewmodels/profil_view_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/state_views.dart';
@@ -14,7 +15,6 @@ import 'favorite_page.dart';
 import 'notification_page.dart';
 import 'orders_page.dart';
 import 'promo_page.dart';
-import '../services/notif_repository.dart';
 
 // HomePage: layar Beranda (DESIGN.md 3.2)
 // Banner gambar + card melayang (sapaan, metode pesan, aksi cepat) + slider promo
@@ -34,20 +34,8 @@ class _HomePageState extends State<HomePage> {
   );
   // State: _promoAktif menyimpan index kartu promo yang sedang tampil (untuk dot)
   int _promoAktif = 0;
-  // State: _produk = stream produk untuk "Paling laris"; dibuat ulang saat "Coba lagi"
-  late Stream<List<Produk>> _produk = context.read<ProductRepository>().stream();
-  // _user: stream users/{uid} untuk sapaan "Hai, {nama}" (null bila belum login)
-  final _user = UserRepo.stream();
 
-  // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() =>
-      setState(() => _produk = context.read<ProductRepository>().stream());
-
-  // _namaDepan: kata pertama nama lengkap agar sapaan muat satu baris
-  String _namaDepan(String nama) {
-    final bagian = nama.trim().split(RegExp(r'\s+'));
-    return bagian.first;
-  }
+  void _muatUlang() => context.read<ProdukViewModel>().muatUlang();
 
   // dispose: membersihkan controller saat widget dihancurkan
   @override
@@ -83,8 +71,8 @@ class _HomePageState extends State<HomePage> {
 
   // _pilihMetode: simpan metode pesanan lalu pindah ke tab Menu
   void _pilihMetode(bool makanDiTempat) {
-    // context.read: mengambil CartProvider tanpa mendengarkan perubahan
-    context.read<CartProvider>().setMakanDiTempat(makanDiTempat);
+    // context.read: mengambil CartViewModel tanpa mendengarkan perubahan
+    context.read<CartViewModel>().setMakanDiTempat(makanDiTempat);
     NavigationPage.tab.value = NavigationPage.tabMenu;
   }
 
@@ -134,11 +122,10 @@ class _HomePageState extends State<HomePage> {
               Positioned(
                 top: atasAman + 16,
                 right: 20,
-                child: StreamBuilder<int>(
-                  stream: NotifRepository.streamBelumDibaca(),
-                  builder: (context, snap) {
+                child: Consumer<NotifikasiViewModel>(
+                  builder: (context, notif, _) {
                     // Langsung pakai jumlah belum dibaca (abaikan toggle)
-                    final belumDibaca = snap.data ?? 0;
+                    final belumDibaca = notif.belumDibaca;
 
                     return Stack(
                       clipBehavior: Clip.none,
@@ -186,15 +173,13 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // StreamBuilder: nama dari users/{uid}.nama
-                    StreamBuilder(
-                      stream: _user,
-                      builder: (context, snap) {
-                        final nama = UserRepo.namaDari(snap.data?.data());
+                    // Consumer: sapaan dari ProfilViewModel
+                    Consumer<ProfilViewModel>(
+                      builder: (context, profil, _) {
                         return Text(
-                          nama.trim().isEmpty
+                          profil.namaDepan.isEmpty
                               ? 'Hai!'
-                              : 'Hai, ${_namaDepan(nama)}',
+                              : 'Hai, ${profil.namaDepan}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: ts(
@@ -322,9 +307,9 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 4),
           // Daftar menu terlaris: baris datar (bukan card), realtime dari Firestore
-          StreamBuilder<List<Produk>>(
-            stream: _produk,
-            builder: (context, snap) {
+          Consumer<ProdukViewModel>(
+            builder: (context, vm, _) {
+              final snap = vm.keadaan;
               // keadaan: memuat / error / kosong; null bila daftar siap tampil
               final keadaan = keadaanStream<List<Produk>>(
                 snap,

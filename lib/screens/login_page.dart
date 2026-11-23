@@ -1,8 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/auth_view_model.dart';
 import '../widgets/common.dart';
 import 'register_page.dart';
 
@@ -22,7 +22,6 @@ class _LoginPageState extends State<LoginPage> {
   final _sandi = TextEditingController();
 
   bool _sembunyikan = true;
-  bool _loading = false;
 
   @override
   void dispose() {
@@ -34,23 +33,15 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _masuk() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _loading = true);
-    try {
-      await AuthService.masuk(
-        email: _email.text,
-        password: _sandi.text,
-      );
-      // Tidak perlu navigasi manual: AuthGate mendengarkan authStateChanges.
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(AuthService.pesanError(e))),
-        );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    // Tidak perlu navigasi manual: AuthGate mendengarkan AuthViewModel.
+    final galat = await context.read<AuthViewModel>().masuk(
+      _email.text,
+      _sandi.text,
+    );
+    if (galat == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(galat)));
   }
 
   // _dialogLupaSandi: kirim tautan reset ke email pengguna.
@@ -63,9 +54,7 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Lupa kata sandi', style: ts(16, 800, ls: -0.3)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -89,50 +78,31 @@ class _LoginPageState extends State<LoginPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Batal',
-                style: ts(13, 700, color: AppColors.muted)),
+            child: Text('Batal', style: ts(13, 700, color: AppColors.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Kirim',
-                style: ts(13, 700, color: AppColors.primary)),
+            child: Text('Kirim', style: ts(13, 700, color: AppColors.primary)),
           ),
         ],
       ),
     );
 
     if (kirim != true) return;
+    if (!context.mounted) return;
     final email = ctrl.text.trim();
-    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Masukkan email yang valid.')),
-        );
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('Tautan reset dikirim ke $email')),
-        );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(AuthService.pesanError(e))),
-        );
-    }
+    final galat = await context.read<AuthViewModel>().kirimResetSandi(email);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(galat ?? 'Tautan reset dikirim ke $email')),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
+    final loading = context.watch<AuthViewModel>().memproses;
     return AuthScaffold(
       judul: 'Masuk',
       subjudul: 'Masuk untuk mulai memesan.',
@@ -176,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.password],
                 onFieldSubmitted: (_) {
-                  if (!_loading) _masuk();
+                  if (!loading) _masuk();
                 },
                 style: ts(14, 500),
                 decoration: InputDecoration(
@@ -219,8 +189,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 4),
               PrimaryButton(
-                label: _loading ? 'Memproses...' : 'Masuk',
-                onPressed: _loading ? null : _masuk,
+                label: loading ? 'Memproses...' : 'Masuk',
+                onPressed: loading ? null : _masuk,
               ),
             ],
           ),
@@ -232,9 +202,9 @@ class _LoginPageState extends State<LoginPage> {
 
 // labelField: label field 12/700 textSecondary
 Widget labelField(String teks) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(teks, style: ts(12, 700, color: AppColors.textSecondary)),
-    );
+  padding: const EdgeInsets.only(bottom: 8),
+  child: Text(teks, style: ts(12, 700, color: AppColors.textSecondary)),
+);
 
 // AuthScaffold: kerangka bersama Masuk & Daftar —
 // banner gelap, badge logo, card melayang berisi form, dan ajakan di bawah.
@@ -267,17 +237,21 @@ class AuthScaffold extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 64, 24, 0),
               decoration: const BoxDecoration(
                 color: AppColors.ink,
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(24),
+                ),
               ),
               child: Column(
                 children: [
-                  Text('KopiKita',
-                      style:
-                          ts(30, 800, color: AppColors.cream, ls: -0.6)),
+                  Text(
+                    'KopiKita',
+                    style: ts(30, 800, color: AppColors.cream, ls: -0.6),
+                  ),
                   const SizedBox(height: 6),
-                  Text('Pesan kopi favoritmu tanpa antre.',
-                      style: ts(14, 500, color: AppColors.cream)),
+                  Text(
+                    'Pesan kopi favoritmu tanpa antre.',
+                    style: ts(14, 500, color: AppColors.cream),
+                  ),
                 ],
               ),
             ),
@@ -296,8 +270,10 @@ class AuthScaffold extends StatelessWidget {
                     Center(child: Text(judul, style: ts(22, 800, ls: -0.3))),
                     const SizedBox(height: 2),
                     Center(
-                      child: Text(subjudul,
-                          style: ts(13, 500, color: AppColors.muted)),
+                      child: Text(
+                        subjudul,
+                        style: ts(13, 500, color: AppColors.muted),
+                      ),
                     ),
                     const SizedBox(height: 18),
                     ...children,
@@ -339,8 +315,7 @@ class AuthScaffold extends StatelessWidget {
               Text(ajakan, style: ts(14, 500, color: AppColors.muted)),
               TextButton(
                 onPressed: onAksi,
-                child:
-                    Text(aksi, style: ts(14, 800, color: AppColors.primary)),
+                child: Text(aksi, style: ts(14, 800, color: AppColors.primary)),
               ),
             ],
           ),

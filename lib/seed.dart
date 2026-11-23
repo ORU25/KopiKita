@@ -17,8 +17,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
-import 'models/produk.dart';
-import 'models/voucher.dart';
+import 'domain/entities/produk.dart';
+import 'domain/entities/voucher.dart';
 
 // Akun uji: [email, nama, role]. Kata sandi semua akun: kataSandiUji
 const akunUji = [
@@ -82,7 +82,7 @@ Future<void> main() async {
 String idDari(String nama) =>
     nama.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
 
-// _kodeTanggal: "2026-10-18" (sama dengan CartProvider._kodeTanggal)
+// _kodeTanggal: "2026-10-18" (sama dengan CartViewModel._kodeTanggal)
 String _kodeTanggal(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
