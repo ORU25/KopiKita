@@ -7,7 +7,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Posttest 4</string>
+		<string>KopiKita</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -47,6 +47,12 @@
 				</array>
 			</dict>
 		</dict>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Anda bisa memilih foto dari galeri sebagai foto profil.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Aplikasi memotret foto profil dengan kamera.</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Aplikasi menghitung jarak Anda ke kedai KopiKita.</string>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>
