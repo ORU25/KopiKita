@@ -14,17 +14,50 @@ class PushService {
   static StreamSubscription<String>? _sub;
   static String? _token;
 
+  /// Dipanggil saat login. TIDAK menampilkan dialog izin: hanya mendaftarkan
+  /// token jika izin sudah ada. Dialog izin diminta lewat [mintaIzin] saat
+  /// pengguna menyalakan "Notifikasi pesanan" (izin diminta saat fitur dipakai).
   static Future<void> daftar() async {
     if (_sub != null) return;
     _sub = _fcm.onTokenRefresh.listen(_simpan);
     try {
-      await _fcm.requestPermission(); // Android 13+: dialog izin notifikasi
+      final s = await _fcm.getNotificationSettings();
+      if (!_diizinkan(s.authorizationStatus)) return;
       final t = await _fcm.getToken();
       if (t != null) await _simpan(t);
     } catch (_) {
-      // Tanpa Play Services / izin ditolak: app tetap jalan, hanya tanpa push
+      // Tanpa Play Services: app tetap jalan, hanya tanpa push
     }
   }
+
+  /// Menampilkan dialog izin notifikasi (Android 13+) lalu mendaftarkan token.
+  /// Mengembalikan true jika diizinkan.
+  static Future<bool> mintaIzin() async {
+    try {
+      final s = await _fcm.requestPermission();
+      if (!_diizinkan(s.authorizationStatus)) return false;
+      final t = await _fcm.getToken();
+      if (t != null) await _simpan(t);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Dipanggil setelah pengguna berhasil memesan (saat notifikasi terasa
+  /// berguna). Dialog hanya muncul jika izin belum pernah ditanyakan.
+  static Future<void> mintaIzinJikaBelum() async {
+    try {
+      final s = await _fcm.getNotificationSettings();
+      if (s.authorizationStatus == AuthorizationStatus.notDetermined) {
+        await mintaIzin();
+      }
+    } catch (_) {}
+  }
+
+  static bool _diizinkan(AuthorizationStatus s) =>
+      s == AuthorizationStatus.authorized ||
+      s == AuthorizationStatus.provisional;
 
   static Future<void> _simpan(String token) async {
     _token = token;

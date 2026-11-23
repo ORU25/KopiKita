@@ -1,11 +1,14 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../services/acc_cloud.dart';
 import '../services/auth_service.dart';
+import '../services/perangkat.dart';
+import '../services/perangkat_asli.dart';
+import '../services/push_service.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -18,8 +21,6 @@ class AccountPage extends StatelessWidget {
   Future<void> _keluar() => AuthService.keluar();
 
   Future<void> _sheetEditProfil(BuildContext context) async {
-    // Future dibuat sekali di luar builder agar tidak terulang saat sheet
-    // di-rebuild (mis. keyboard muncul) dan isi form tidak ter-reset.
     final dataF = UserRepo.ambil();
 
     final simpan = await showModalBottomSheet<bool>(
@@ -41,7 +42,6 @@ class AccountPage extends StatelessWidget {
               ),
             );
           }
-          // Gagal memuat → data dianggap kosong (form tetap bisa diisi)
           final data = snap.data;
           return _SheetEditProfil(
             namaAwal: UserRepo.namaDari(data),
@@ -109,7 +109,6 @@ class AccountPage extends StatelessWidget {
                   children: [
                     Text('Akun', style: ts(24, 800, ls: -0.4)),
                     const SizedBox(height: 16),
-                    // Card profil hanya tampilan; edit lewat baris "Edit profil".
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -177,8 +176,6 @@ class AccountPage extends StatelessWidget {
                 _keluar,
                 warna: AppColors.danger,
                 garisBawah: false,
-                // Glyph logout lebih lebar (x 2–22 dari grid 24, ikon lain 4–20);
-                // dikecilkan agar tepi kirinya sejajar ikon di atas.
                 ukuranIkon: 19,
                 trailing: const SizedBox.shrink(),
               ),
@@ -189,9 +186,26 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  // Tulis langsung; StreamBuilder ikut berubah seketika (cache lokal Firestore).
   Future<void> _ubahNotifikasi(BuildContext context, bool v) async {
     try {
+      if (v) {
+        final diizinkan = await PushService.mintaIzin();
+        if (!diizinkan && context.mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: const Text(
+                    'Izin notifikasi belum diberikan. Notifikasi di dalam aplikasi tetap muncul.'),
+                action: SnackBarAction(
+                  label: 'Pengaturan',
+                  onPressed: () =>
+                      const PengaturanPerangkatAsli().bukaPengaturanAplikasi(),
+                ),
+              ),
+            );
+        }
+      }
       await UserRepo.update({'notifikasi': v});
     } catch (e) {
       if (!context.mounted) return;
@@ -223,7 +237,6 @@ class AccountPage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Kotak tetap 22 agar label selalu mulai di x yang sama.
               SizedBox(
                 width: 22,
                 child: Icon(ikon, size: ukuranIkon, color: warna),
@@ -243,7 +256,6 @@ class AccountPage extends StatelessWidget {
   }
 }
 
-// _Avatar: bulat 48, foto bila ada, fallback inisial.
 class _Avatar extends StatelessWidget {
   final String fotoUrl;
   final String inisial;
@@ -281,7 +293,6 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-// _SheetEditProfil: avatar + ganti foto + field nama + simpan.
 class _SheetEditProfil extends StatefulWidget {
   final String namaAwal;
   final String fotoAwal;
@@ -296,10 +307,15 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
   late String _fotoUrl;
   Uint8List? _fotoBaru;
   bool _loading = false;
+  bool _memilih = false;
   String? _errNama;
   String? _errUmum;
+  Kegagalan? _kegagalanFoto;
 
-  static const _maxFotoBytes = 2 * 1024 * 1024; // 2 MB setelah kompresi
+  final PemilihFoto _pemilihFoto = PemilihFotoImagePicker();
+  final PengaturanPerangkat _pengaturan = const PengaturanPerangkatAsli();
+
+  static const _maxFotoBytes = 2 * 1024 * 1024;
   static const _formatFoto = {'jpg', 'jpeg', 'png', 'webp'};
 
   @override
@@ -307,6 +323,24 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
     super.initState();
     _namaCtrl = TextEditingController(text: widget.namaAwal);
     _fotoUrl = widget.fotoAwal;
+    _pulihkanFotoHilang(); // ⬅️ BARU: pemulihan Android (Bagian 4.6)
+  }
+
+  /// Android mematikan aplikasi saat kamera terbuka dan memori menipis.
+  /// image_picker menyimpan hasilnya; kita minta sekali di sini.
+  Future<void> _pulihkanFotoHilang() async {
+    final Hasil<FotoDipilih>? hasil = await _pemilihFoto.fotoHilang();
+    if (!mounted || hasil == null) return;
+    switch (hasil) {
+      case Berhasil(:final nilai):
+        setState(() => _fotoBaru = nilai.bita);
+      case Gagal(:final kegagalan):
+        if (kegagalan is Dibatalkan) return;
+        setState(() {
+          _kegagalanFoto = kegagalan;
+          _errUmum = pesanKegagalan(kegagalan);
+        });
+    }
   }
 
   @override
@@ -315,29 +349,73 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
     super.dispose();
   }
 
-  Future<void> _pilihFoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      imageQuality: 85,
+  Future<bool?> _pilihSumber() async {
+    if (!_pemilihFoto.kameraTersedia) return false;
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(),
+            ListTile(
+              minTileHeight: 56,
+              leading: const Icon(Icons.photo_camera_outlined,
+                  color: AppColors.primary),
+              title: Text('Ambil dengan kamera', style: ts(14, 600)),
+              onTap: () => Navigator.pop(ctx, true),
+            ),
+            ListTile(
+              minTileHeight: 56,
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: AppColors.primary),
+              title: Text('Pilih dari galeri', style: ts(14, 600)),
+              onTap: () => Navigator.pop(ctx, false),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
-    if (picked == null) return;
-    final ext = picked.name.split('.').last.toLowerCase();
-    if (!_formatFoto.contains(ext)) {
-      setState(() => _errUmum = 'Format foto harus JPG, PNG, atau WEBP.');
-      return;
-    }
-    final bytes = await picked.readAsBytes();
-    if (!mounted) return;
-    if (bytes.length > _maxFotoBytes) {
-      setState(() => _errUmum = 'Ukuran foto maksimal 2 MB.');
-      return;
-    }
+  }
+
+  Future<void> _pilihFoto() async {
+    if (_memilih || _loading) return;
+    final bool? dariKamera = await _pilihSumber();
+    if (dariKamera == null || !mounted) return;
+
     setState(() {
-      _fotoBaru = bytes;
+      _memilih = true;
       _errUmum = null;
+      _kegagalanFoto = null;
     });
+    final hasil = await _pemilihFoto.ambil(dariKamera: dariKamera);
+    if (!mounted) return;
+    setState(() => _memilih = false);
+
+    switch (hasil) {
+      case Gagal(:final kegagalan):
+        if (kegagalan is Dibatalkan) return;
+        setState(() {
+          _kegagalanFoto = kegagalan;
+          _errUmum = pesanKegagalan(kegagalan);
+        });
+      case Berhasil(:final nilai):
+        final ext = nilai.nama.split('.').last.toLowerCase();
+        if (!_formatFoto.contains(ext)) {
+          setState(() => _errUmum = 'Format foto harus JPG, PNG, atau WEBP.');
+          return;
+        }
+        if (nilai.bita.length > _maxFotoBytes) {
+          setState(() => _errUmum = 'Ukuran foto maksimal 2 MB.');
+          return;
+        }
+        setState(() => _fotoBaru = nilai.bita);
+    }
   }
 
   Future<void> _simpan() async {
@@ -416,7 +494,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: _loading ? null : _pilihFoto,
+                      onTap: (_loading || _memilih) ? null : _pilihFoto,
                       child: const SizedBox(
                         width: 32,
                         height: 32,
@@ -448,6 +526,15 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
             onChanged: (_) => setState(() => _errNama = null),
           ),
           _ErrorUmum(_errUmum),
+          if (_kegagalanFoto is IzinDiblokir && !kIsWeb)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _pengaturan.bukaPengaturanAplikasi,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('Buka Pengaturan'),
+              ),
+            ),
           const SizedBox(height: 16),
           PrimaryButton(
             label: _loading ? 'Menyimpan...' : 'Simpan',
@@ -459,9 +546,6 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
   }
 }
 
-// _NaikKeyboard: handle + padding sheet 20 + naik setinggi keyboard.
-// Hanya widget ini yang dibangun ulang tiap frame animasi keyboard (isi sheet
-// tidak), dan AnimatedPadding menghaluskan inset keyboard yang datang patah-patah.
 class _NaikKeyboard extends StatelessWidget {
   final Widget child;
   const _NaikKeyboard({required this.child});
@@ -486,7 +570,6 @@ class _NaikKeyboard extends StatelessWidget {
   }
 }
 
-// _ErrorUmum: teks error 12 danger di atas tombol sheet; kosong bila null.
 class _ErrorUmum extends StatelessWidget {
   final String? pesan;
   const _ErrorUmum(this.pesan);
@@ -501,7 +584,6 @@ class _ErrorUmum extends StatelessWidget {
   }
 }
 
-// _SheetUbahSandi: field sandi lama + sandi baru + simpan.
 class _SheetUbahSandi extends StatefulWidget {
   const _SheetUbahSandi();
 
@@ -528,7 +610,6 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
   }
 
   Future<void> _simpan() async {
-    // Validasi lokal dulu; error tampil di bawah field (SnackBar tertutup sheet).
     setState(() {
       _errLama = _lamaCtrl.text.isEmpty ? 'Wajib diisi.' : null;
       _errBaru = _baruCtrl.text.length < 6 ? 'Minimal 6 karakter.' : null;

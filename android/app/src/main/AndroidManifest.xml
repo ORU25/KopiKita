@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Lokasi perkiraan (+/- 3 km) dan tepat (GPS). Wajib ditulis berdua di Android 12+. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- JANGAN tambah android.permission.CAMERA: image_picker memakai aplikasi kamera
+         bawaan, dan izin CAMERA yang belum diberikan justru membuatnya gagal terbuka. -->
     <application
         android:label="KopiKita"
         android:name="${applicationName}"
@@ -46,6 +51,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- url_launcher: membuka tautan https (Google Maps) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

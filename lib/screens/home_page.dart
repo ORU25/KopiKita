@@ -8,6 +8,7 @@ import '../services/product_repository.dart';
 import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/kartu_jarak_kedai.dart';
 import '../widgets/state_views.dart';
 import 'customize_page.dart';
 import 'favorite_page.dart';
@@ -301,6 +302,13 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 14),
+
+          // Jarak ke kedai (izin lokasi baru diminta saat tombol diketuk)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: KartuJarakKedai(),
+          ),
+          const SizedBox(height: 18),
 
           // Judul seksi "Paling laris" + link "Lihat menu" (→ tab Menu)
           Padding(
