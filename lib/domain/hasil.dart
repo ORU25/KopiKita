@@ -21,7 +21,7 @@ final class Gagal<T> extends Hasil<T> {
 
 // Bahasa kegagalan milik aplikasi, bebas dari istilah Firebase.
 // Exception teknis diterjemahkan SEKALI, di repository (lapisan data).
-sealed class Kegagalan {
+sealed class Kegagalan implements Exception {
   const Kegagalan();
 }
 
@@ -47,4 +47,9 @@ final class AturanDilanggar extends Kegagalan {
   const AturanDilanggar(this.alasan);
 
   final String alasan;
+}
+
+// Email atau kata sandi salah (login / verifikasi ulang saat ubah sandi).
+final class KredensialSalah extends Kegagalan {
+  const KredensialSalah();
 }

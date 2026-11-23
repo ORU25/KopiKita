@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../domain/repositories/product_repository.dart';
-import '../models/produk.dart';
+import '../viewmodels/produk_view_model.dart';
+import '../domain/entities/produk.dart';
 import '../theme/app_theme.dart';
 import '../widgets/favorit.dart';
 import '../widgets/menu_row.dart';
@@ -19,12 +19,7 @@ class FavoritePage extends StatefulWidget {
 }
 
 class _FavoritePageState extends State<FavoritePage> {
-  // State: _produk = stream produk; dibuat ulang saat "Coba lagi"
-  late Stream<List<Produk>> _produk = context.read<ProductRepository>().stream();
-
-  // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() =>
-      setState(() => _produk = context.read<ProductRepository>().stream());
+  void _muatUlang() => context.read<ProdukViewModel>().muatUlang();
 
   @override
   Widget build(BuildContext context) {
@@ -39,16 +34,19 @@ class _FavoritePageState extends State<FavoritePage> {
         title: Text('Favorit', style: ts(18, 800, ls: -0.3)),
       ),
       body: FavoritBuilder(
-        builder: (context, favorit, siap) => StreamBuilder<List<Produk>>(
-          stream: _produk,
-          builder: (context, snap) => _isi(snap, favorit, siap),
+        builder: (context, favorit, siap) => Consumer<ProdukViewModel>(
+          builder: (context, vm, _) => _isi(vm.keadaan, favorit, siap),
         ),
       ),
     );
   }
 
   // _isi: memuat / error / kosong / daftar favorit
-  Widget _isi(AsyncSnapshot<List<Produk>> snap, Set<String> favorit, bool siap) {
+  Widget _isi(
+    AsyncSnapshot<List<Produk>> snap,
+    Set<String> favorit,
+    bool siap,
+  ) {
     // Tunggu daftar favorit pertama agar tidak sempat tampil "kosong"
     if (!siap && !snap.hasError) return const LoadingView();
 
@@ -68,9 +66,7 @@ class _FavoritePageState extends State<FavoritePage> {
     final daftar = snap.requireData.where((p) => favorit.contains(p.id));
     return ListView(
       padding: const EdgeInsets.only(top: 4, bottom: 24),
-      children: [
-        for (final p in daftar) BarisMenu(produk: p, favorit: true),
-      ],
+      children: [for (final p in daftar) BarisMenu(produk: p, favorit: true)],
     );
   }
 }

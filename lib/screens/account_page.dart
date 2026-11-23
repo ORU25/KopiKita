@@ -1,26 +1,31 @@
 import 'dart:typed_data';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
-import '../services/acc_cloud.dart';
-import '../services/auth_service.dart';
-import '../services/user_repo.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/auth_view_model.dart';
+import '../viewmodels/profil_view_model.dart';
 import '../widgets/common.dart';
-import '../widgets/state_views.dart';
 import 'promo_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
 
-  Future<void> _keluar() => AuthService.keluar();
+  // _keluar: lewat AuthViewModel, lalu bersihkan cache gambar (mencegah
+  // gambar akun lama tertukar di Web).
+  Future<void> _keluar(BuildContext context) async {
+    await context.read<AuthViewModel>().keluar();
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  }
 
   Future<void> _sheetEditProfil(BuildContext context) async {
-    // Future dibuat sekali di luar builder agar tidak terulang saat sheet
-    // di-rebuild (mis. keyboard muncul) dan isi form tidak ter-reset.
-    final dataF = UserRepo.ambil();
+    // Nilai awal diambil sekali dari ViewModel agar isi form tidak ter-reset
+    // saat sheet di-rebuild (mis. keyboard muncul).
+    final awal = context.read<ProfilViewModel>().profil;
 
     final simpan = await showModalBottomSheet<bool>(
       context: context,
@@ -30,34 +35,15 @@ class AccountPage extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => FutureBuilder(
-        future: dataF,
-        builder: (ctx, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return _NaikKeyboard(
-              child: SizedBox(
-                height: MediaQuery.sizeOf(ctx).height * 0.5,
-                child: const LoadingView(),
-              ),
-            );
-          }
-          // Gagal memuat → data dianggap kosong (form tetap bisa diisi)
-          final data = snap.data;
-          return _SheetEditProfil(
-            namaAwal: UserRepo.namaDari(data),
-            fotoAwal: (data?['fotoUrl'] as String?) ?? '',
-          );
-        },
-      ),
+      builder: (ctx) =>
+          _SheetEditProfil(namaAwal: awal.nama, fotoAwal: awal.fotoUrl),
     );
 
     if (simpan != true) return;
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Profil diperbarui.')),
-      );
+      ..showSnackBar(const SnackBar(content: Text('Profil diperbarui.')));
   }
 
   Future<void> _sheetUbahSandi(BuildContext context) async {
@@ -85,19 +71,14 @@ class AccountPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
-      child: StreamBuilder(
-        stream: UserRepo.stream(),
-        builder: (context, snap) {
-          final data = snap.data?.data();
-          final nama = UserRepo.namaDari(data);
-          final email = UserRepo.emailDari(data);
-          final role = UserRepo.roleDari(data);
-          final fotoUrl = (data?['fotoUrl'] as String?) ?? '';
-
-          final namaTampil = nama.isEmpty ? 'Pengguna' : nama;
-          final inisial = namaTampil.trim().isEmpty
-              ? '?'
-              : namaTampil.trim().substring(0, 1).toUpperCase();
+      child: Consumer<ProfilViewModel>(
+        builder: (context, vm, _) {
+          final p = vm.profil;
+          final email = p.email;
+          final role = p.role;
+          final fotoUrl = p.fotoUrl;
+          final namaTampil = vm.namaTampil;
+          final inisial = vm.inisial;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(0, 24, 0, 170),
@@ -132,8 +113,11 @@ class AccountPage extends StatelessWidget {
                                 if (role != 'pelanggan')
                                   Text(
                                     role == 'admin' ? 'Admin' : 'Staf',
-                                    style: ts(12, 700,
-                                        color: AppColors.primary),
+                                    style: ts(
+                                      12,
+                                      700,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                               ],
                             ),
@@ -148,10 +132,9 @@ class AccountPage extends StatelessWidget {
               _barisPengaturan(
                 Icons.notifications_none_rounded,
                 'Notifikasi pesanan',
-                () => _ubahNotifikasi(
-                    context, !UserRepo.notifikasiDari(data)),
+                () => _ubahNotifikasi(context, !p.notifikasi),
                 trailing: Switch(
-                  value: UserRepo.notifikasiDari(data),
+                  value: p.notifikasi,
                   activeThumbColor: AppColors.primary,
                   onChanged: (v) => _ubahNotifikasi(context, v),
                 ),
@@ -174,7 +157,7 @@ class AccountPage extends StatelessWidget {
               _barisPengaturan(
                 Icons.logout_rounded,
                 'Keluar',
-                _keluar,
+                () => _keluar(context),
                 warna: AppColors.danger,
                 garisBawah: false,
                 // Glyph logout lebih lebar (x 2–22 dari grid 24, ikon lain 4–20);
@@ -189,16 +172,13 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  // Tulis langsung; StreamBuilder ikut berubah seketika (cache lokal Firestore).
+  // ViewModel menulis; profil ikut berubah seketika (cache lokal Firestore).
   Future<void> _ubahNotifikasi(BuildContext context, bool v) async {
-    try {
-      await UserRepo.update({'notifikasi': v});
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
-    }
+    final galat = await context.read<ProfilViewModel>().setNotifikasi(v);
+    if (galat == null || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $galat')));
   }
 
   Widget _barisPengaturan(
@@ -233,8 +213,10 @@ class AccountPage extends StatelessWidget {
                 child: Text(label, style: ts(14, 600, color: warna)),
               ),
               trailing ??
-                  const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.muted),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.muted,
+                  ),
             ],
           ),
         ),
@@ -299,7 +281,8 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
   String? _errNama;
   String? _errUmum;
 
-  static const _maxFotoBytes = 2 * 1024 * 1024; // 2 MB setelah kompresi
+  static const _maxFotoBytes =
+      ProfilViewModel.maksFotoBytes; // 2 MB setelah kompresi
   static const _formatFoto = {'jpg', 'jpeg', 'png', 'webp'};
 
   @override
@@ -351,24 +334,18 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
       _loading = true;
       _errUmum = null;
     });
-    try {
-      if (_fotoBaru != null) {
-        _fotoUrl = await CloudinaryAccService.uploadBytes(_fotoBaru!);
-      }
-
-      final data = <String, dynamic>{'nama': nama};
-      if (_fotoUrl.isNotEmpty && _fotoUrl != widget.fotoAwal) {
-        data['fotoUrl'] = _fotoUrl;
-      }
-      await UserRepo.update(data);
-
-      if (!mounted) return;
+    // ViewModel → use case UbahProfil (unggah foto bila ada, lalu simpan nama)
+    final galat = await context.read<ProfilViewModel>().simpanProfil(
+      nama: nama,
+      fotoBaru: _fotoBaru,
+    );
+    if (!mounted) return;
+    if (galat == null) {
       Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
+    } else {
       setState(() {
         _loading = false;
-        _errUmum = 'Gagal menyimpan: $e';
+        _errUmum = 'Gagal menyimpan: $galat';
       });
     }
   }
@@ -398,14 +375,19 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
                     child: _fotoBaru != null
                         ? Image.memory(_fotoBaru!, fit: BoxFit.cover)
                         : (_fotoUrl.isEmpty
-                            ? Container(
-                                color: AppColors.surface,
-                                alignment: Alignment.center,
-                                child: Text(inisial,
-                                    style: ts(24, 800,
-                                        color: AppColors.primary)),
-                              )
-                            : Image.network(_fotoUrl, fit: BoxFit.cover)),
+                              ? Container(
+                                  color: AppColors.surface,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    inisial,
+                                    style: ts(
+                                      24,
+                                      800,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                )
+                              : Image.network(_fotoUrl, fit: BoxFit.cover)),
                   ),
                 ),
                 Positioned(
@@ -420,8 +402,11 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
                       child: const SizedBox(
                         width: 32,
                         height: 32,
-                        child: Icon(Icons.photo_camera_outlined,
-                            size: 18, color: Colors.white),
+                        child: Icon(
+                          Icons.photo_camera_outlined,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -431,8 +416,7 @@ class _SheetEditProfilState extends State<_SheetEditProfil> {
           ),
           const SizedBox(height: 16),
 
-          Text('Nama',
-              style: ts(12, 700, color: AppColors.textSecondary)),
+          Text('Nama', style: ts(12, 700, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           TextField(
             controller: _namaCtrl,
@@ -542,23 +526,23 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
     }
 
     setState(() => _loading = true);
-    try {
-      await AuthService.ubahSandi(_lamaCtrl.text, _baruCtrl.text);
-      if (!mounted) return;
+    final h = await context.read<AuthViewModel>().ubahSandi(
+      _lamaCtrl.text,
+      _baruCtrl.text,
+    );
+    if (!mounted) return;
+    if (h.pesan == null) {
       Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      final sandiSalah = e is FirebaseAuthException &&
-          (e.code == 'wrong-password' || e.code == 'invalid-credential');
-      setState(() {
-        _loading = false;
-        if (sandiSalah) {
-          _errLama = 'Kata sandi lama salah.';
-        } else {
-          _errUmum = AuthService.pesanError(e);
-        }
-      });
+      return;
     }
+    setState(() {
+      _loading = false;
+      if (h.sandiLamaSalah) {
+        _errLama = h.pesan;
+      } else {
+        _errUmum = h.pesan;
+      }
+    });
   }
 
   Widget _field(
@@ -578,8 +562,9 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
           controller: ctrl,
           enabled: !_loading,
           obscureText: true,
-          textInputAction:
-              terakhir ? TextInputAction.done : TextInputAction.next,
+          textInputAction: terakhir
+              ? TextInputAction.done
+              : TextInputAction.next,
           style: ts(14, 500),
           decoration: InputDecoration(
             fillColor: AppColors.surface,
@@ -604,16 +589,24 @@ class _SheetUbahSandiState extends State<_SheetUbahSandi> {
         children: [
           Text('Ubah kata sandi', style: ts(18, 800, ls: -0.3)),
           const SizedBox(height: 16),
-          _field('Kata sandi lama', _lamaCtrl, _errLama,
-              () => _errLama = null),
+          _field('Kata sandi lama', _lamaCtrl, _errLama, () => _errLama = null),
           const SizedBox(height: 14),
-          _field('Kata sandi baru', _baruCtrl, _errBaru,
-              () => _errBaru = null,
-              hint: 'Minimal 6 karakter'),
+          _field(
+            'Kata sandi baru',
+            _baruCtrl,
+            _errBaru,
+            () => _errBaru = null,
+            hint: 'Minimal 6 karakter',
+          ),
           const SizedBox(height: 14),
-          _field('Konfirmasi kata sandi baru', _konfirmasiCtrl,
-              _errKonfirmasi, () => _errKonfirmasi = null,
-              hint: 'Ulangi kata sandi baru', terakhir: true),
+          _field(
+            'Konfirmasi kata sandi baru',
+            _konfirmasiCtrl,
+            _errKonfirmasi,
+            () => _errKonfirmasi = null,
+            hint: 'Ulangi kata sandi baru',
+            terakhir: true,
+          ),
           _ErrorUmum(_errUmum),
           const SizedBox(height: 16),
           PrimaryButton(

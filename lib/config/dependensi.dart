@@ -1,27 +1,133 @@
+import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../data/repositories/auth_repository_firebase.dart';
+import '../data/repositories/favorit_repository_firestore.dart';
+import '../data/repositories/foto_repository_cloudinary.dart';
+import '../data/repositories/menu_config_repository_firestore.dart';
+import '../data/repositories/notifikasi_repository_firestore.dart';
 import '../data/repositories/order_repository_firestore.dart';
 import '../data/repositories/product_repository_firestore.dart';
+import '../data/repositories/profil_repository_firestore.dart';
+import '../data/repositories/push_repository_fcm.dart';
+import '../data/repositories/voucher_repository_firestore.dart';
+import '../domain/repositories/auth_repository.dart';
+import '../domain/repositories/favorit_repository.dart';
+import '../domain/repositories/foto_repository.dart';
+import '../domain/repositories/menu_config_repository.dart';
+import '../domain/repositories/notifikasi_repository.dart';
 import '../domain/repositories/order_repository.dart';
 import '../domain/repositories/product_repository.dart';
+import '../domain/repositories/profil_repository.dart';
+import '../domain/repositories/push_repository.dart';
+import '../domain/repositories/voucher_repository.dart';
 import '../domain/use_cases/batalkan_pesanan.dart';
+import '../domain/use_cases/buat_pesanan.dart';
+import '../domain/use_cases/pantau_status_pesanan.dart';
+import '../domain/use_cases/ubah_profil.dart';
+import '../viewmodels/auth_view_model.dart';
+import '../viewmodels/cart_view_model.dart';
+import '../viewmodels/favorit_view_model.dart';
+import '../viewmodels/notifikasi_view_model.dart';
+import '../viewmodels/pesanan_view_model.dart';
+import '../viewmodels/produk_view_model.dart';
+import '../viewmodels/profil_view_model.dart';
+import '../viewmodels/voucher_saya_view_model.dart';
 
-// AKAR KOMPOSISI (composition root): SATU-SATUNYA tempat yang tahu repository
-// mana yang dipakai. Jenis yang dititipkan ditulis sebagai KONTRAK
-// (ProductRepository), bukan implementasinya, sehingga layar cukup
-// `context.read<ProductRepository>()`. Untuk beralih ke data palsu cukup
-// ganti implementasi di sini (atau di tes: Provider<...>.value(value: palsu)).
+// AKAR KOMPOSISI (composition root): SATU-SATUNYA tempat yang tahu
+// implementasi mana yang dipakai. Jenis yang dititipkan ditulis sebagai
+// KONTRAK (mis. ProductRepository), bukan implementasinya. Untuk beralih ke
+// data palsu cukup ganti di sini (atau di tes: Provider<...>.value(value: palsu)).
+//
+//   View (screens/, widgets/) ──watch/read──▶ ViewModel (viewmodels/)
+//   ViewModel ──▶ use case / kontrak repository (domain/)
+//   data/ ──implements──▶ kontrak domain/
+
+/// buatPenyedia: repository, use case, dan AuthViewModel (seumur aplikasi).
 List<SingleChildWidget> buatPenyedia() {
   return [
-    Provider<ProductRepository>(
-      create: (_) => ProductRepositoryFirestore(),
+    // ---------- Lapisan data (di balik kontrak domain) ----------
+    Provider<AuthRepository>(create: (_) => AuthRepositoryFirebase()),
+    Provider<ProfilRepository>(create: (_) => ProfilRepositoryFirestore()),
+    Provider<ProductRepository>(create: (_) => ProductRepositoryFirestore()),
+    Provider<OrderRepository>(create: (_) => OrderRepositoryFirestore()),
+    Provider<FavoritRepository>(create: (_) => FavoritRepositoryFirestore()),
+    Provider<VoucherRepository>(create: (_) => VoucherRepositoryFirestore()),
+    Provider<NotifikasiRepository>(
+      create: (_) => NotifikasiRepositoryFirestore(),
     ),
-    Provider<OrderRepository>(
-      create: (_) => OrderRepositoryFirestore(),
+    Provider<MenuConfigRepository>(
+      create: (_) => MenuConfigRepositoryFirestore(),
     ),
-    Provider<BatalkanPesanan>(
-      create: (context) => BatalkanPesanan(context.read<OrderRepository>()),
+    Provider<FotoRepository>(create: (_) => FotoRepositoryCloudinary()),
+    Provider<PushRepository>(create: (_) => PushRepositoryFcm()),
+
+    // ---------- Use case (domain) ----------
+    Provider(create: (c) => BatalkanPesanan(c.read<OrderRepository>())),
+    Provider(create: (c) => BuatPesanan(c.read<OrderRepository>())),
+    Provider(
+      create: (c) =>
+          UbahProfil(c.read<ProfilRepository>(), c.read<FotoRepository>()),
+    ),
+    Provider(
+      create: (c) => PantauStatusPesanan(
+        c.read<OrderRepository>(),
+        c.read<NotifikasiRepository>(),
+      ),
+    ),
+
+    // ---------- ViewModel seumur aplikasi ----------
+    ChangeNotifierProvider(
+      lazy: false, // Langsung dengarkan status login
+      create: (c) => AuthViewModel(
+        c.read<AuthRepository>(),
+        c.read<PushRepository>(),
+        c.read<PantauStatusPesanan>(),
+      ),
     ),
   ];
 }
+
+/// buatPenyediaSesi: ViewModel milik SATU sesi login. Dibuat ulang setiap
+/// user berganti (lihat MainApp) sehingga data akun lama tidak terbawa.
+List<SingleChildWidget> buatPenyediaSesi() {
+  return [
+    ChangeNotifierProvider(create: buatCartViewModel),
+    ChangeNotifierProvider(
+      create: (c) => ProdukViewModel(c.read<ProductRepository>()),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => FavoritViewModel(c.read<FavoritRepository>()),
+    ),
+    ChangeNotifierProvider(
+      create: (c) =>
+          ProfilViewModel(c.read<ProfilRepository>(), c.read<UbahProfil>()),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => NotifikasiViewModel(c.read<NotifikasiRepository>()),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => PesananAktifViewModel(
+        c.read<OrderRepository>(),
+        c.read<BatalkanPesanan>(),
+      ),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => RiwayatPesananViewModel(c.read<OrderRepository>()),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => VoucherSayaViewModel(
+        c.read<ProfilRepository>(),
+        c.read<VoucherRepository>(),
+      ),
+    ),
+  ];
+}
+
+/// buatCartViewModel: dipakai juga Keranjang "Pesan lagi" (keranjang terpisah).
+CartViewModel buatCartViewModel(BuildContext c) => CartViewModel(
+  c.read<VoucherRepository>(),
+  c.read<MenuConfigRepository>(),
+  c.read<BuatPesanan>(),
+);

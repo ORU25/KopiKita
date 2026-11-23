@@ -1,4 +1,4 @@
-import '../../models/produk.dart';
+import '../entities/produk.dart';
 
 /// ProductRepository: KONTRAK akses katalog produk (koleksi products).
 /// Hanya menyebut APA yang tersedia, bukan dari mana datanya. Implementasi

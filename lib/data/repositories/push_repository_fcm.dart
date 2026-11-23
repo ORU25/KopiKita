@@ -1,20 +1,35 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-import 'user_repo.dart';
+import '../../domain/repositories/push_repository.dart';
 
-/// PushService: simpan token FCM HP ini di users/{uid}.fcmTokens agar
+/// PushRepositoryFcm: simpan token FCM HP ini di users/{uid}.fcmTokens agar
 /// kopikita-web (/api/notif) bisa mengirim push saat app ditutup.
 /// Notif dengan payload `notification` ditampilkan otomatis oleh Android
 /// saat app di background/ditutup; saat app terbuka, lonceng Beranda yang dipakai.
-class PushService {
-  static final _fcm = FirebaseMessaging.instance;
-  static StreamSubscription<String>? _sub;
-  static String? _token;
+class PushRepositoryFcm implements PushRepository {
+  FirebaseMessaging get _fcm => FirebaseMessaging.instance;
+  StreamSubscription<String>? _sub;
+  String? _token;
 
-  static Future<void> daftar() async {
+  Future<void> _tulis(Object nilai) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'fcmTokens': nilai,
+    });
+  }
+
+  Future<void> _simpan(String token) async {
+    _token = token;
+    await _tulis(FieldValue.arrayUnion([token]));
+  }
+
+  @override
+  Future<void> daftar() async {
     if (_sub != null) return;
     _sub = _fcm.onTokenRefresh.listen(_simpan);
     try {
@@ -26,24 +41,15 @@ class PushService {
     }
   }
 
-  static Future<void> _simpan(String token) async {
-    _token = token;
-    await UserRepo.update({
-      'fcmTokens': FieldValue.arrayUnion([token]),
-    });
-  }
-
-  /// Hapus token HP ini dari akun. Panggil SEBELUM signOut (butuh izin tulis).
-  static Future<void> lepas() async {
+  @override
+  Future<void> lepas() async {
     await _sub?.cancel();
     _sub = null;
     final t = _token;
     _token = null;
     if (t == null) return;
     try {
-      await UserRepo.update({
-        'fcmTokens': FieldValue.arrayRemove([t]),
-      });
+      await _tulis(FieldValue.arrayRemove([t]));
     } catch (_) {}
   }
 }

@@ -1,26 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:kopikita/models/cart_item.dart';
-import 'package:kopikita/models/pesanan.dart';
-import 'package:kopikita/models/produk.dart';
-import 'package:kopikita/providers/cart_provider.dart';
+import 'package:kopikita/domain/entities/cart_item.dart';
+import 'package:kopikita/domain/entities/pesanan.dart';
+import 'package:kopikita/domain/entities/produk.dart';
+import 'fakes/fakes.dart';
 
 void main() {
   // Hitungan keranjang sesuai contoh DESIGN.md 3.5:
   // Subtotal 87.000 + pajak 10% 8.700 = 95.700 (tanpa voucher).
-  test('CartProvider menghitung total', () {
-    final cart = CartProvider()
-      ..addItem(const CartItem(
+  test('CartViewModel menghitung total', () {
+    final cart = buatCart()
+      ..addItem(
+        const CartItem(
           nama: 'Kopi Susu Kita',
           harga: 31000,
           ukuran: 'Large',
-          addOn: ['Extra shot']))
-      ..addItem(const CartItem(
+          addOn: ['Extra shot'],
+        ),
+      )
+      ..addItem(
+        const CartItem(
           nama: 'Caramel Latte',
           harga: 28000,
           suhu: 'Panas',
           gula: 'Sedikit',
-          jumlah: 2));
+          jumlah: 2,
+        ),
+      );
     expect(cart.subtotal, 87000);
     expect(cart.diskon, 0);
     expect(cart.pajak, 8700);
@@ -28,8 +34,14 @@ void main() {
     expect(cart.totalItems, 3);
 
     // Opsi sama → digabung; opsi beda → item baru
-    cart.addItem(const CartItem(
-        nama: 'Caramel Latte', harga: 28000, suhu: 'Panas', gula: 'Sedikit'));
+    cart.addItem(
+      const CartItem(
+        nama: 'Caramel Latte',
+        harga: 28000,
+        suhu: 'Panas',
+        gula: 'Sedikit',
+      ),
+    );
     expect(cart.items.length, 2);
     cart.addItem(const CartItem(nama: 'Caramel Latte', harga: 28000));
     expect(cart.items.length, 3);
@@ -44,16 +56,18 @@ void main() {
       status: 2, // "Diproses"
       items: [
         CartItem(
-            nama: 'Kopi Susu Kita',
-            harga: 31000,
-            ukuran: 'Large',
-            addOn: ['Extra shot']),
+          nama: 'Kopi Susu Kita',
+          harga: 31000,
+          ukuran: 'Large',
+          addOn: ['Extra shot'],
+        ),
         CartItem(
-            nama: 'Caramel Latte',
-            harga: 28000,
-            suhu: 'Panas',
-            gula: 'Sedikit',
-            jumlah: 2),
+          nama: 'Caramel Latte',
+          harga: 28000,
+          suhu: 'Panas',
+          gula: 'Sedikit',
+          jumlah: 2,
+        ),
       ],
       total: 76560,
     );

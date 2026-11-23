@@ -1,4 +1,4 @@
-import '../../models/pesanan.dart';
+import '../entities/pesanan.dart';
 import '../hasil.dart';
 import '../repositories/order_repository.dart';
 
@@ -17,7 +17,7 @@ class BatalkanPesanan {
 
   final OrderRepository _pesanan;
 
-  // Index `statusKode` untuk 'menunggu_bayar' (lihat models/pesanan.dart)
+  // Index `statusKode` untuk 'menunggu_bayar' (lihat entities/pesanan.dart)
   static const int _menungguBayar = 0;
 
   Future<Hasil<void>> jalankan(Pesanan pesanan) async {
