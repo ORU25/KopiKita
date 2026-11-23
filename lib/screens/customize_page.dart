@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/cart_item.dart';
-import '../models/produk.dart';
-import '../providers/cart_provider.dart';
+import '../domain/entities/cart_item.dart';
+import '../domain/entities/produk.dart';
+import '../viewmodels/cart_view_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -65,27 +64,18 @@ class _CustomizePageState extends State<CustomizePage> {
     _ambilConfig();
   }
 
-  // _ambilConfig: Mengambil harga Large dan Add-on langsung dari Firestore.
-  // Bila gagal (offline / config belum ada), pakai default aman agar UI tetap
-  // jalan: hargaLarge 4000 dan tanpa add-on.
+  // _ambilConfig: harga Large & add-on lewat CartViewModel (MenuConfigRepository).
+  // Bila gagal (offline / config belum ada), repository memberi nilai bawaan
+  // aman: hargaLarge 4000 dan tanpa add-on.
   Future<void> _ambilConfig() async {
-    try {
-      final snap = await FirebaseFirestore.instance.doc('config/menu').get();
-      final data = snap.data();
-      if (data != null) {
-        _hargaLarge = (data['hargaLarge'] ?? 4000) as int;
-        final rawAddOn = data['addOn'] as Map<String, dynamic>? ?? {};
-        _addOnMenu = rawAddOn.map(
-          (key, value) => MapEntry(key, (value as num).toInt()),
-        );
-      } else {
-        _hargaLarge = 4000;
-      }
-    } catch (e) {
-      // Fallback aman bila config/menu tidak terbaca
-      _hargaLarge = 4000;
-    }
-    if (mounted) setState(() => _memuatConfig = false);
+    final cart = context.read<CartViewModel>();
+    await cart.muatConfig();
+    if (!mounted) return;
+    setState(() {
+      _hargaLarge = cart.config.hargaLarge;
+      _addOnMenu = cart.config.addOn;
+      _memuatConfig = false;
+    });
   }
 
   // dispose: membersihkan controller saat widget dihancurkan
@@ -105,7 +95,7 @@ class _CustomizePageState extends State<CustomizePage> {
   // _tambah: masukkan item ke keranjang lalu tutup layar
   void _tambah() {
     final p = widget.produk;
-    context.read<CartProvider>().addItem(
+    context.read<CartViewModel>().addItem(
       CartItem(
         productId: p.id,
         gambarUrl: p.gambarUrl,

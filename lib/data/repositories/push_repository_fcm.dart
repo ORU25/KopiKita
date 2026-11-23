@@ -6,13 +6,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../domain/repositories/push_repository.dart';
 
-/// PushService: simpan token FCM HP ini di users/{uid}.fcmTokens agar
+/// PushRepositoryFcm: simpan token FCM HP ini di users/{uid}.fcmTokens agar
 /// kopikita-web (/api/notif) bisa mengirim push saat app ditutup.
 /// Notif dengan payload `notification` ditampilkan otomatis oleh Android
 /// saat app di background/ditutup; saat app terbuka, lonceng Beranda yang dipakai.
 class PushRepositoryFcm implements PushRepository {
-  PushRepositoryFcm();
-
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   StreamSubscription<String>? _sub;
   String? _token;
@@ -36,6 +34,7 @@ class PushRepositoryFcm implements PushRepository {
 
   /// Menampilkan dialog izin notifikasi (Android 13+) lalu mendaftarkan token.
   /// Mengembalikan true jika diizinkan.
+  @override
   Future<bool> mintaIzin() async {
     try {
       final s = await _fcm.requestPermission();
@@ -46,17 +45,6 @@ class PushRepositoryFcm implements PushRepository {
     } catch (_) {
       return false;
     }
-  }
-
-  /// Dipanggil setelah pengguna berhasil memesan (saat notifikasi terasa
-  /// berguna). Dialog hanya muncul jika izin belum pernah ditanyakan.
-  Future<void> mintaIzinJikaBelum() async {
-    try {
-      final s = await _fcm.getNotificationSettings();
-      if (s.authorizationStatus == AuthorizationStatus.notDetermined) {
-        await mintaIzin();
-      }
-    } catch (_) {}
   }
 
   bool _diizinkan(AuthorizationStatus s) =>

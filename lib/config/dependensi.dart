@@ -8,6 +8,7 @@ import '../data/repositories/foto_repository_cloudinary.dart';
 import '../data/repositories/menu_config_repository_firestore.dart';
 import '../data/repositories/notifikasi_repository_firestore.dart';
 import '../data/repositories/order_repository_firestore.dart';
+import '../data/repositories/perangkat_asli.dart';
 import '../data/repositories/product_repository_firestore.dart';
 import '../data/repositories/profil_repository_firestore.dart';
 import '../data/repositories/push_repository_fcm.dart';
@@ -18,6 +19,7 @@ import '../domain/repositories/foto_repository.dart';
 import '../domain/repositories/menu_config_repository.dart';
 import '../domain/repositories/notifikasi_repository.dart';
 import '../domain/repositories/order_repository.dart';
+import '../domain/repositories/perangkat_repository.dart';
 import '../domain/repositories/product_repository.dart';
 import '../domain/repositories/profil_repository.dart';
 import '../domain/repositories/push_repository.dart';
@@ -29,6 +31,7 @@ import '../domain/use_cases/ubah_profil.dart';
 import '../viewmodels/auth_view_model.dart';
 import '../viewmodels/cart_view_model.dart';
 import '../viewmodels/favorit_view_model.dart';
+import '../viewmodels/jarak_kedai_view_model.dart';
 import '../viewmodels/notifikasi_view_model.dart';
 import '../viewmodels/pesanan_view_model.dart';
 import '../viewmodels/produk_view_model.dart';
@@ -62,6 +65,12 @@ List<SingleChildWidget> buatPenyedia() {
     ),
     Provider<FotoRepository>(create: (_) => FotoRepositoryCloudinary()),
     Provider<PushRepository>(create: (_) => PushRepositoryFcm()),
+    // Fitur perangkat (Pertemuan 13): lokasi, kamera/galeri, Pengaturan
+    Provider<LayananLokasi>(create: (_) => const LayananLokasiGeolocator()),
+    Provider<PemilihFoto>(create: (_) => PemilihFotoImagePicker()),
+    Provider<PengaturanPerangkat>(
+      create: (_) => const PengaturanPerangkatAsli(),
+    ),
 
     // ---------- Use case (domain) ----------
     Provider(create: (c) => BatalkanPesanan(c.read<OrderRepository>())),
@@ -95,14 +104,25 @@ List<SingleChildWidget> buatPenyediaSesi() {
   return [
     ChangeNotifierProvider(create: buatCartViewModel),
     ChangeNotifierProvider(
+      create: (c) => JarakKedaiViewModel(
+        c.read<LayananLokasi>(),
+        c.read<PengaturanPerangkat>(),
+      ),
+    ),
+    ChangeNotifierProvider(
       create: (c) => ProdukViewModel(c.read<ProductRepository>()),
     ),
     ChangeNotifierProvider(
       create: (c) => FavoritViewModel(c.read<FavoritRepository>()),
     ),
     ChangeNotifierProvider(
-      create: (c) =>
-          ProfilViewModel(c.read<ProfilRepository>(), c.read<UbahProfil>()),
+      create: (c) => ProfilViewModel(
+        c.read<ProfilRepository>(),
+        c.read<UbahProfil>(),
+        c.read<PushRepository>(),
+        c.read<PemilihFoto>(),
+        c.read<PengaturanPerangkat>(),
+      ),
     ),
     ChangeNotifierProvider(
       create: (c) => NotifikasiViewModel(c.read<NotifikasiRepository>()),

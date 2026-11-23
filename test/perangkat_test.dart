@@ -1,8 +1,12 @@
 // Uji domain perangkat dengan data palsu (Pertemuan 13, Bagian 9.7).
 // Jalankan: flutter test test/perangkat_test.dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kopikita/services/perangkat.dart';
-import 'package:kopikita/services/perangkat_palsu.dart';
+import 'package:kopikita/domain/entities/foto_dipilih.dart';
+import 'package:kopikita/domain/entities/lokasi.dart';
+import 'package:kopikita/domain/hasil.dart';
+import 'package:kopikita/viewmodels/pesan_kegagalan.dart';
+
+import 'fakes/perangkat_palsu.dart';
 
 void main() {
   group('jarakMeter (haversine)', () {

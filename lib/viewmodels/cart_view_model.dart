@@ -181,7 +181,7 @@ class CartViewModel extends ChangeNotifier {
               'Koneksi lambat atau terputus. Periksa internet lalu coba lagi.',
             TanpaIzin() => 'Tidak punya izin membuat pesanan.',
             LayananBermasalah(:final kode) => 'Gagal membuat pesanan ($kode).',
-            _ => pesanKegagalan(kegagalan),
+            _ => pesanKegagalan(kegagalan) ?? 'Gagal membuat pesanan.',
           });
       }
     } finally {

@@ -1,7 +1,10 @@
 // Versi PALSU untuk pengembangan dan pengujian: tanpa GPS, tanpa kamera.
 import 'dart:typed_data';
 
-import 'perangkat.dart';
+import 'package:kopikita/domain/entities/foto_dipilih.dart';
+import 'package:kopikita/domain/entities/lokasi.dart';
+import 'package:kopikita/domain/hasil.dart';
+import 'package:kopikita/domain/repositories/perangkat_repository.dart';
 
 /// Skenario lokasi untuk chip pilihan di layar pengembangan
 /// (Pertemuan 13, Bagian 9.5). Ubah saat runtime tanpa recompile.
@@ -74,11 +77,7 @@ class LayananLokasiPalsu implements LayananLokasi {
 }
 
 class PemilihFotoPalsu implements PemilihFoto {
-  PemilihFotoPalsu(
-    this.hasil, {
-    this.kameraTersedia = true,
-    this.hasilHilang,
-  });
+  PemilihFotoPalsu(this.hasil, {this.kameraTersedia = true, this.hasilHilang});
 
   final Hasil<FotoDipilih> hasil;
 

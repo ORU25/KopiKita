@@ -34,35 +34,61 @@ lib/
 ├── main.dart            # Inisialisasi Firebase, splash, AuthGate, navigasi 4 tab
 ├── firebase_options.dart# Konfigurasi Firebase hasil FlutterFire CLI
 ├── seed.dart            # Skrip pengisi data awal Firestore + akun uji
-├── models/              # Produk, CartItem, Pesanan, Voucher, aturan voucher
-├── providers/           # CartProvider (keranjang, voucher, pajak, checkout)
-├── services/            # Akses Firebase: auth, produk, pesanan, voucher, favorit,
-│                        #   notifikasi, push (FCM), upload Cloudinary
-├── screens/             # Login, Daftar, Beranda, Menu, Cari, Favorit, Kustomisasi,
+├── config/
+│   └── dependensi.dart  # Akar komposisi: satu-satunya tempat memilih implementasi
+├── domain/              # Dart murni (tanpa Flutter/Firebase)
+│   ├── entities/        #   Produk, CartItem, Pesanan, Voucher, Profil, Notifikasi, MenuConfig
+│   ├── repositories/    #   Kontrak (abstract class) repository
+│   ├── use_cases/       #   BuatPesanan, BatalkanPesanan, UbahProfil, PantauStatusPesanan
+│   └── hasil.dart       #   Hasil (Berhasil/Gagal) dan Kegagalan
+├── data/                # Implementasi kontrak: Firebase Auth, Firestore, FCM, Cloudinary (REST)
+├── viewmodels/          # ChangeNotifier per fitur: Auth, Cart, Produk, Favorit, Profil,
+│                        #   Notifikasi, Pesanan, VoucherSaya
+├── screens/             # View: Login, Daftar, Beranda, Menu, Cari, Favorit, Kustomisasi,
 │                        #   Keranjang, Pesanan, Promo, Notifikasi, Akun
 ├── theme/               # Token warna dan tipografi (AppTheme)
 └── widgets/             # Komponen UI bersama
 kopikita-design/         # Acuan desain (DESIGN.md, screenshot layar, aset)
-test/                    # Unit test CartProvider dan widget test
+test/                    # Unit test ViewModel, use case, dan repository REST (data palsu / MockClient)
 ```
+
+## Arsitektur: Clean Architecture + MVVM
+
+```
+View (screens/, widgets/) ──watch/read──▶ ViewModel (viewmodels/)
+                                              │
+                                              ▼
+                         Domain: use case + kontrak repository (domain/)
+                                              ▲
+                                              │ implements
+                         Data: Firebase / Cloudinary (data/)
+```
+
+- **Aturan ketergantungan**: `domain/` tidak mengimpor Flutter, Firebase, maupun `data/`. ViewModel dan View hanya mengenal kontrak di `domain/`; tidak ada View yang mengimpor Firebase atau `data/`.
+- **View** hanya menampilkan state ViewModel (`context.watch` / `Consumer`) dan meneruskan aksi pengguna. State tampilan murni (tab aktif, isi form, baris terbuka) tetap di widget.
+- **ViewModel** memegang state layar (memuat/data/galat lewat `StreamViewModel`) dan memanggil use case atau kontrak repository. Hasilnya kalimat siap tampil, bukan exception.
+- **Kegagalan**: exception Firebase/HTTP diterjemahkan **sekali** di `data/firebase_kegagalan.dart` menjadi `Kegagalan` (TanpaKoneksi, TanpaIzin, KredensialSalah, AturanDilanggar, LayananBermasalah).
+- **Dependency injection**: semua repository, use case, dan ViewModel dipasang di `config/dependensi.dart` lewat `provider`. ViewModel milik sesi (`buatPenyediaSesi`) dibuat ulang tiap kali akun berganti, sehingga keranjang dan data akun lama tidak terbawa.
+- **Fitur perangkat (Pertemuan 13)**: lokasi (`geolocator`), kamera/galeri (`image_picker`), dan Pengaturan HP berada di balik kontrak `domain/repositories/perangkat_repository.dart`; implementasi asli di `data/repositories/perangkat_asli.dart`; dipakai lewat `JarakKedaiViewModel` (kartu jarak di Beranda) dan `ProfilViewModel` (foto profil, izin notifikasi). Izin baru diminta saat fitur dipakai; ditolak/diblokir → pesan + tombol Pengaturan.
+- **Pengujian**: karena semua bergantung pada kontrak, tes memakai repository palsu di `test/fakes/` (tanpa Firebase dan internet).
 
 ## Cara Kerja Aplikasi
 
 ### 1. Alur layar
 
-Saat aplikasi dibuka, `main.dart` menginisialisasi data tanggal Indonesia dan Firebase, menampilkan splash screen selama dua detik, lalu menyerahkan kendali ke `AuthGate`. `AuthGate` mendengarkan `FirebaseAuth.authStateChanges()`: bila pengguna belum login ia menampilkan `LoginPage`, dan bila sudah login ia menampilkan `NavigationPage` yang berisi empat tab (Beranda, Menu, Pesanan, Akun). Pada saat login berhasil, `AuthGate` juga memasang listener notifikasi pesanan dan mendaftarkan token FCM perangkat. Saat logout, listener dilepas dan token dihapus.
+Saat aplikasi dibuka, `main.dart` menginisialisasi data tanggal Indonesia dan Firebase, menampilkan splash screen selama dua detik, lalu menyerahkan kendali ke `AuthGate`. `AuthGate` mengikuti `AuthViewModel.status`: bila pengguna belum login ia menampilkan `LoginPage`, dan bila sudah login ia menampilkan `NavigationPage` yang berisi empat tab (Beranda, Menu, Pesanan, Akun). Saat login berhasil, `AuthViewModel` menyalakan use case `PantauStatusPesanan` dan mendaftarkan token FCM perangkat. Saat logout, pemantau dihentikan dan token dihapus.
 
-### 2. Data realtime lewat repository
+### 2. Data realtime lewat ViewModel
 
-Hampir semua data dibaca sebagai stream Firestore melalui kelas repository di `lib/services/`, lalu ditampilkan dengan `StreamBuilder`. Karena itu, perubahan yang dilakukan staf atau admin lewat web, misalnya menandai produk habis, mengganti harga, atau mengubah status pesanan, langsung muncul di aplikasi pelanggan tanpa perlu refresh. Hanya keranjang yang memakai `provider` (`CartProvider`), karena keranjang adalah state lokal yang tidak disimpan di server sebelum checkout.
+Hampir semua data dibaca sebagai stream Firestore oleh repository di `lib/data/`, lalu dipegang ViewModel (`ProdukViewModel`, `PesananAktifViewModel`, `ProfilViewModel`, dst.) yang ditonton layar dengan `Consumer`. Karena itu, perubahan yang dilakukan staf atau admin lewat web, misalnya menandai produk habis, mengganti harga, atau mengubah status pesanan, langsung muncul di aplikasi pelanggan tanpa perlu refresh. Satu `ProdukViewModel` dipakai bersama oleh Beranda, Menu, Cari, Favorit, dan Riwayat sehingga katalog cukup dilanggan sekali.
 
 ### 3. Dari keranjang sampai pesanan siap
 
 1. Pelanggan membuka produk di Menu atau Beranda, mengatur kustomisasi, lalu menambahkannya ke keranjang. Item dengan pilihan kustomisasi yang sama digabung dan jumlahnya ditambah.
 2. Di Keranjang, pelanggan memilih metode pesan dan dapat memasang voucher. Voucher divalidasi ke koleksi `vouchers` (aktif, belum kedaluwarsa, dan memenuhi minimum belanja). Diskon dihitung dari subtotal, lalu pajak (default 10%, dibaca dari `config/menu`) dihitung dari subtotal setelah diskon.
-3. Saat checkout, `CartProvider.checkout()` menjalankan satu **Firestore transaction** yang memeriksa setiap produk masih ada dan tidak habis, memeriksa ulang voucher, menaikkan nomor antrean di `counters/antrean` (nomor direset tiap hari dan berformat `A-001`), lalu membuat dokumen di `orders` dengan status `menunggu_bayar`. Karena semuanya dalam satu transaction, dua pelanggan tidak akan mendapat nomor antrean yang sama.
+3. Saat checkout, `CartViewModel.checkout()` memanggil use case `BuatPesanan`, lalu `OrderRepositoryFirestore.buat()` menjalankan satu **Firestore transaction** yang memeriksa setiap produk masih ada dan tidak habis, memeriksa ulang voucher, menaikkan nomor antrean di `counters/antrean` (nomor direset tiap hari dan berformat `A-001`), lalu membuat dokumen di `orders` dengan status `menunggu_bayar`. Karena semuanya dalam satu transaction, dua pelanggan tidak akan mendapat nomor antrean yang sama.
 4. Pelanggan membayar di kasir. Staf mengubah status melalui web: `dibayar` → `diproses` → `siap` → `selesai`. Setiap perubahan tampil di tab Pesanan sebagai stepper.
-5. `NotifPesanan` memantau stream pesanan aktif. Ketika status berubah menjadi dibayar, diproses, atau siap, sebuah dokumen ditulis ke `users/{uid}/notifikasi` sehingga muncul di lonceng Beranda lengkap dengan penanda belum dibaca. Untuk notifikasi saat aplikasi ditutup, `PushService` menyimpan token FCM di `users/{uid}.fcmTokens` agar `kopikita-web` dapat mengirim push.
+5. Use case `PantauStatusPesanan` memantau stream pesanan aktif. Ketika status berubah menjadi dibayar, diproses, atau siap, sebuah dokumen ditulis ke `users/{uid}/notifikasi` sehingga muncul di lonceng Beranda lengkap dengan penanda belum dibaca. Untuk notifikasi saat aplikasi ditutup, `PushRepositoryFcm` menyimpan token FCM di `users/{uid}.fcmTokens` agar `kopikita-web` dapat mengirim push.
 6. Pelanggan hanya boleh membatalkan pesanan selama statusnya masih `menunggu_bayar`. Pembatalan dilakukan dengan transaction agar tidak menimpa perubahan staf yang masuk bersamaan.
 
 ### 4. Peran pengguna
@@ -183,7 +209,7 @@ counters/antrean
 
 ### Cloudinary (foto)
 
-Foto profil diunggah dari aplikasi ke Cloudinary memakai *unsigned upload preset*. Nilai `cloud name` dan `upload preset` ada di `lib/services/acc_cloud.dart` dan harus sama dengan yang dipakai `kopikita-web`. Untuk memakai akun Cloudinary sendiri, buat upload preset bertipe *unsigned* yang mengizinkan folder `foto-profil`, lalu ganti konstanta `_cloudName` dan `_uploadPreset` di file tersebut. URL gambar (`secure_url`) yang dikembalikan Cloudinary disimpan ke Firestore, bukan file gambarnya.
+Foto profil diunggah dari aplikasi ke Cloudinary memakai *unsigned upload preset*. Nilai `cloud name` dan `upload preset` ada di `lib/data/repositories/foto_repository_cloudinary.dart` dan harus sama dengan yang dipakai `kopikita-web`. Untuk memakai akun Cloudinary sendiri, buat upload preset bertipe *unsigned* yang mengizinkan folder `foto-profil`, lalu ganti konstanta `_cloudName` dan `_uploadPreset` di file tersebut. URL gambar (`secure_url`) yang dikembalikan Cloudinary disimpan ke Firestore, bukan file gambarnya.
 
 ## Menjalankan Pengujian
 

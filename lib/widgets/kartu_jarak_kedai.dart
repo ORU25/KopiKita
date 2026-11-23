@@ -2,61 +2,33 @@
 // Alur izin sopan (Pertemuan 13, Bagian 7): lokasi TIDAK diminta saat aplikasi
 // dibuka, hanya saat pengguna mengetuk tombol, dan aplikasi tetap bisa dipakai
 // penuh jika izin ditolak.
+// View murni: keadaan & aksi ada di JarakKedaiViewModel.
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../services/perangkat.dart';
-import '../services/perangkat_asli.dart';
+import '../domain/entities/lokasi.dart';
 import '../theme/app_theme.dart';
-
-/// Empat keadaan kartu, seperti Hasil di Pertemuan 12.
-sealed class _Keadaan {
-  const _Keadaan();
-}
-
-class _BelumDiminta extends _Keadaan {
-  const _BelumDiminta();
-}
-
-class _Mencari extends _Keadaan {
-  const _Mencari();
-}
-
-class _Ditemukan extends _Keadaan {
-  const _Ditemukan(this.jarak);
-  final JarakKedai jarak;
-}
-
-class _Gagal extends _Keadaan {
-  const _Gagal(this.kegagalan);
-  final Kegagalan kegagalan;
-}
+import '../viewmodels/jarak_kedai_view_model.dart';
 
 class KartuJarakKedai extends StatefulWidget {
-  const KartuJarakKedai({
-    super.key,
-    this.layanan = const LayananLokasiGeolocator(),
-    this.pengaturan = const PengaturanPerangkatAsli(),
-  });
-
-  /// Bisa diganti LayananLokasiPalsu untuk pengembangan dan uji.
-  final LayananLokasi layanan;
-  final PengaturanPerangkat pengaturan;
+  const KartuJarakKedai({super.key});
 
   @override
   State<KartuJarakKedai> createState() => _KartuJarakKedaiState();
 }
 
 class _KartuJarakKedaiState extends State<KartuJarakKedai> {
-  _Keadaan _keadaan = const _BelumDiminta();
   late final AppLifecycleListener _pendengar;
 
   @override
   void initState() {
     super.initState();
-    // Setelah pengguna kembali dari Pengaturan, periksa ulang otomatis.
-    _pendengar = AppLifecycleListener(onResume: _saatKembali);
+    // Setelah pengguna kembali dari Pengaturan, ViewModel memeriksa ulang.
+    _pendengar = AppLifecycleListener(
+      onResume: () => context.read<JarakKedaiViewModel>().saatKembali(),
+    );
   }
 
   @override
@@ -65,32 +37,10 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
     super.dispose();
   }
 
-  void _saatKembali() {
-    final _Keadaan k = _keadaan;
-    if (k is _Gagal &&
-        (k.kegagalan is LayananLokasiMati || k.kegagalan is IzinDiblokir)) {
-      _cari();
-    }
-  }
-
-  Future<void> _cari() async {
-    if (_keadaan is _Mencari) return; // cegah ketukan ganda
-    setState(() => _keadaan = const _Mencari());
-    final Hasil<Posisi> hasil = await widget.layanan.posisiSekarang();
-    if (!mounted) return;
-    setState(() {
-      _keadaan = switch (hasil) {
-        Berhasil(:final nilai) => _Ditemukan(JarakKedai.dari(nilai)),
-        Gagal(:final kegagalan) => _Gagal(kegagalan),
-      };
-    });
-  }
+  void _cari() => context.read<JarakKedaiViewModel>().cari();
 
   Future<void> _bukaPeta() async {
-    final Uri alamat = Uri.https('www.google.com', '/maps/search/', {
-      'api': '1',
-      'query': '$lintangKedai,$bujurKedai',
-    });
+    final Uri alamat = context.read<JarakKedaiViewModel>().alamatPeta;
     bool berhasil = false;
     try {
       berhasil = await launchUrl(alamat, mode: LaunchMode.externalApplication);
@@ -99,13 +49,16 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text('Tidak ada aplikasi peta yang bisa dibuka.')),
+          const SnackBar(
+            content: Text('Tidak ada aplikasi peta yang bisa dibuka.'),
+          ),
         );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<JarakKedaiViewModel>();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -114,11 +67,11 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.outline),
       ),
-      child: switch (_keadaan) {
-        _BelumDiminta() => _isiAwal(),
-        _Mencari() => _isiMencari(),
-        _Ditemukan(:final jarak) => _isiDitemukan(jarak),
-        _Gagal(:final kegagalan) => _isiGagal(kegagalan),
+      child: switch (vm.keadaan) {
+        BelumDiminta() => _isiAwal(),
+        Mencari() => _isiMencari(),
+        Ditemukan(:final jarak) => _isiDitemukan(jarak),
+        final GagalLokasi g => _isiGagal(vm, g),
       },
     );
   }
@@ -164,7 +117,10 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
       const SizedBox(
         width: 22,
         height: 22,
-        child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary),
+        child: CircularProgressIndicator(
+          strokeWidth: 3,
+          color: AppColors.primary,
+        ),
       ),
       const SizedBox(width: 12),
       Expanded(child: _isi('Mencari lokasimu…')),
@@ -183,8 +139,11 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
         const SizedBox(height: 6),
         Row(
           children: [
-            const Icon(Icons.warning_amber_rounded,
-                size: 16, color: AppColors.danger),
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 16,
+              color: AppColors.danger,
+            ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -215,20 +174,22 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
     ],
   );
 
-  Widget _isiGagal(Kegagalan k) {
+  Widget _isiGagal(JarakKedaiViewModel vm, GagalLokasi g) {
     // Tombol menyesuaikan jenis kegagalannya.
-    final Widget tombol = switch (k) {
-      LayananLokasiMati() => OutlinedButton.icon(
-        onPressed: kIsWeb ? null : widget.pengaturan.bukaPengaturanLokasi,
+    final Widget tombol = switch (g) {
+      GagalLokasi(layananMati: true) => OutlinedButton.icon(
+        onPressed: kIsWeb ? null : vm.bukaPengaturanLokasi,
         icon: const Icon(Icons.location_on_outlined, size: 18),
         label: const Text('Nyalakan Lokasi'),
       ),
-      IzinDiblokir() =>
+      GagalLokasi(diblokir: true) =>
         kIsWeb
             // Browser mengatur izinnya sendiri, tidak ada halaman Pengaturan.
-            ? _isi('Klik ikon di sebelah kiri alamat situs, lalu izinkan Lokasi.')
+            ? _isi(
+                'Klik ikon di sebelah kiri alamat situs, lalu izinkan Lokasi.',
+              )
             : OutlinedButton.icon(
-                onPressed: widget.pengaturan.bukaPengaturanAplikasi,
+                onPressed: vm.bukaPengaturanAplikasi,
                 icon: const Icon(Icons.settings_outlined, size: 18),
                 label: const Text('Buka Pengaturan'),
               ),
@@ -243,7 +204,7 @@ class _KartuJarakKedaiState extends State<KartuJarakKedai> {
       children: [
         _judul('Jarak belum bisa ditampilkan'),
         const SizedBox(height: 6),
-        _isi(pesanKegagalan(k) ?? 'Coba lagi.'),
+        _isi(g.pesan),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,

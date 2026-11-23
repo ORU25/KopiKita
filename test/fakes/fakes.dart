@@ -102,8 +102,10 @@ class FakeAuthRepository implements AuthRepository {
   Stream<String?> perubahanUid() => Stream.value(null);
 
   @override
-  Future<Hasil<void>> masuk({required String email, required String sandi}) async =>
-      hasil;
+  Future<Hasil<void>> masuk({
+    required String email,
+    required String sandi,
+  }) async => hasil;
 
   @override
   Future<Hasil<void>> daftar({
@@ -119,16 +121,28 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<Hasil<void>> ubahSandi({required String lama, required String baru}) async =>
-      hasil;
+  Future<Hasil<void>> ubahSandi({
+    required String lama,
+    required String baru,
+  }) async => hasil;
 
   @override
   Future<void> keluar() async {}
 }
 
 class FakePushRepository implements PushRepository {
+  FakePushRepository({this.izin = true});
+  final bool izin; // Jawaban dialog izin notifikasi
+  int dimintaIzin = 0;
+
   @override
   Future<void> daftar() async {}
+
+  @override
+  Future<bool> mintaIzin() async {
+    dimintaIzin++;
+    return izin;
+  }
 
   @override
   Future<void> lepas() async {}

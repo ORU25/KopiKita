@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/produk.dart';
-import '../services/product_repository.dart';
+import '../viewmodels/produk_view_model.dart';
+import '../domain/entities/produk.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/favorit.dart';
@@ -9,12 +10,11 @@ import '../widgets/menu_row.dart';
 import '../widgets/state_views.dart';
 
 // SearchPage: layar Cari menu (DESIGN.md 3.3a)
-// Filter nama dilakukan LOKAL dari daftar produk yang sudah dimuat Menu (`awal`),
+// Filter nama dilakukan LOKAL dari katalog di ProdukViewModel (sudah dimuat Menu),
 // lalu tetap mengikuti perubahan realtime (mis. status Habis) dari stream produk.
 // Tidak ada query Firestore per ketikan.
 class SearchPage extends StatefulWidget {
-  final List<Produk>? awal; // Daftar yang sudah dimuat Menu (tampil instan)
-  const SearchPage({super.key, this.awal});
+  const SearchPage({super.key});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -25,8 +25,6 @@ class _SearchPageState extends State<SearchPage> {
   final TextEditingController _ctrl = TextEditingController();
   // State: _kata = kata kunci (sudah di-trim dan huruf kecil)
   String _kata = '';
-  // State: _produk = stream produk; dibuat ulang saat "Coba lagi"
-  Stream<List<Produk>> _produk = ProductRepository.stream();
 
   @override
   void dispose() {
@@ -34,8 +32,7 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  // _muatUlang: berlangganan ulang ke produk setelah error
-  void _muatUlang() => setState(() => _produk = ProductRepository.stream());
+  void _muatUlang() => context.read<ProdukViewModel>().muatUlang();
 
   // _hapus: kosongkan kolom pencarian
   void _hapus() {
@@ -87,13 +84,11 @@ class _SearchPageState extends State<SearchPage> {
                 ],
               ),
             ),
-            // Hasil: daftar favorit + stream produk (data awal = daftar Menu)
+            // Hasil: daftar favorit × katalog produk (ViewModel)
             Expanded(
               child: FavoritBuilder(
-                builder: (context, favorit, _) => StreamBuilder<List<Produk>>(
-                  stream: _produk,
-                  initialData: widget.awal,
-                  builder: (context, snap) => _hasil(snap, favorit),
+                builder: (context, favorit, _) => Consumer<ProdukViewModel>(
+                  builder: (context, vm, _) => _hasil(vm.keadaan, favorit),
                 ),
               ),
             ),

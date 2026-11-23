@@ -53,3 +53,56 @@ final class AturanDilanggar extends Kegagalan {
 final class KredensialSalah extends Kegagalan {
   const KredensialSalah();
 }
+
+// ── Kegagalan fitur perangkat (Pertemuan 13): lokasi, kamera, galeri ──
+
+enum Fitur {
+  lokasi('lokasi'),
+  kamera('kamera'),
+  galeri('galeri');
+
+  const Fitur(this.nama);
+  final String nama;
+}
+
+/// Sakelar Lokasi di HP mati.
+final class LayananLokasiMati extends Kegagalan {
+  const LayananLokasiMati();
+}
+
+/// Izin belum diberikan, tetapi masih boleh diminta lagi.
+final class IzinDitolak extends Kegagalan {
+  const IzinDitolak(this.fitur);
+  final Fitur fitur;
+}
+
+/// Izin diblokir: dialog tidak akan muncul lagi, hanya lewat Pengaturan.
+final class IzinDiblokir extends Kegagalan {
+  const IzinDiblokir(this.fitur);
+  final Fitur fitur;
+}
+
+final class PerangkatTidakMendukung extends Kegagalan {
+  const PerangkatTidakMendukung(this.fitur);
+  final Fitur fitur;
+}
+
+/// Pengguna sendiri yang membatalkan. Bukan kesalahan (tanpa pesan).
+final class Dibatalkan extends Kegagalan {
+  const Dibatalkan();
+}
+
+final class WaktuHabis extends Kegagalan {
+  const WaktuHabis();
+}
+
+/// Pemilih foto masih terbuka (kode already_active / multiple_request).
+final class PemilihSibuk extends Kegagalan {
+  const PemilihSibuk();
+}
+
+/// Galat perangkat lain yang tidak dikenali (kodenya ikut ditampilkan).
+final class GangguanPerangkat extends Kegagalan {
+  const GangguanPerangkat(this.kode);
+  final String kode;
+}
