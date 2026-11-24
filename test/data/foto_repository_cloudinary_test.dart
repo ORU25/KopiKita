@@ -33,4 +33,45 @@ void main() {
     final h = await FotoRepositoryCloudinary(klien: klien).unggah(bytes);
     expect(h, isA<Gagal<String>>().having((g) => g.kegagalan, 'k', isA<TanpaKoneksi>()));
   });
+
+  test('server terlalu lama → TanpaKoneksi', () async {
+    final klien = MockClient((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return http.Response('{}', 200);
+    });
+    final h = await FotoRepositoryCloudinary(
+      klien: klien,
+      batasWaktu: const Duration(milliseconds: 100),
+    ).unggah(bytes);
+    expect(h, isA<Gagal<String>>().having((g) => g.kegagalan, 'k', isA<TanpaKoneksi>()));
+  });
+
+  test('JSON rusak → LayananBermasalah', () async {
+    final klien = MockClient((_) async => http.Response('bukan json', 200));
+    final h = await FotoRepositoryCloudinary(klien: klien).unggah(bytes);
+    expect(h, isA<Gagal<String>>().having((g) => g.kegagalan, 'k', isA<LayananBermasalah>()));
+  });
+
+  test('JSON bukan objek ([]) → LayananBermasalah, tidak crash', () async {
+    final klien = MockClient((_) async => http.Response('[]', 200));
+    final h = await FotoRepositoryCloudinary(klien: klien).unggah(bytes);
+    expect(h, isA<Gagal<String>>().having((g) => g.kegagalan, 'k', isA<LayananBermasalah>()));
+  });
+
+  test('secure_url kosong → LayananBermasalah', () async {
+    final klien = MockClient(
+      (_) async => http.Response(jsonEncode({'secure_url': ''}), 200),
+    );
+    final h = await FotoRepositoryCloudinary(klien: klien).unggah(bytes);
+    expect(h, isA<Gagal<String>>().having((g) => g.kegagalan, 'k', isA<LayananBermasalah>()));
+  });
+
+  test('request dikirim sebagai multipart', () async {
+    final klien = MockClient((req) async {
+      expect(req.headers['content-type'], startsWith('multipart/form-data'));
+      return http.Response(jsonEncode({'secure_url': 'https://cdn/x.jpg'}), 200);
+    });
+    final h = await FotoRepositoryCloudinary(klien: klien).unggah(bytes);
+    expect(h, isA<Berhasil<String>>());
+  });
 }
