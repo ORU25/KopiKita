@@ -31,6 +31,13 @@ abstract class StreamViewModel<T> extends ChangeNotifier {
     );
   }
 
+  /// Memperbarui state secara manual (untuk subclass, mis. load dari cache).
+  /// Dipakai oleh subclass yang perlu meng-set state tanpa stream.
+  @protected
+  void setState(AsyncSnapshot<T> snapshot) {
+    _ubah(snapshot);
+  }
+
   void _ubah(AsyncSnapshot<T> k) {
     if (_dibuang) return;
     _keadaan = k;

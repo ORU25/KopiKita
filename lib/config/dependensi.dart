@@ -1,7 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/local/app_settings_repository.dart';
+import '../data/local/cart_local_repository.dart';
+import '../data/local/database_service.dart';
+import '../data/local/product_cache_repository.dart';
 import '../data/repositories/auth_repository_firebase.dart';
 import '../data/repositories/favorit_repository_firestore.dart';
 import '../data/repositories/foto_repository_cloudinary.dart';
@@ -13,6 +18,7 @@ import '../data/repositories/product_repository_firestore.dart';
 import '../data/repositories/profil_repository_firestore.dart';
 import '../data/repositories/push_repository_fcm.dart';
 import '../data/repositories/voucher_repository_firestore.dart';
+import '../domain/repositories/app_settings_repository.dart';
 import '../domain/repositories/auth_repository.dart';
 import '../domain/repositories/favorit_repository.dart';
 import '../domain/repositories/foto_repository.dart';
@@ -36,6 +42,7 @@ import '../viewmodels/notifikasi_view_model.dart';
 import '../viewmodels/pesanan_view_model.dart';
 import '../viewmodels/produk_view_model.dart';
 import '../viewmodels/profil_view_model.dart';
+import '../viewmodels/settings_view_model.dart';
 import '../viewmodels/voucher_saya_view_model.dart';
 
 // AKAR KOMPOSISI (composition root): SATU-SATUNYA tempat yang tahu
@@ -50,6 +57,14 @@ import '../viewmodels/voucher_saya_view_model.dart';
 /// buatPenyedia: repository, use case, dan AuthViewModel (seumur aplikasi).
 List<SingleChildWidget> buatPenyedia() {
   return [
+    // ---------- Local Storage Services ----------
+    Provider<DatabaseService>(
+      create: (_) => DatabaseService(),
+      dispose: (_, db) => db.tutup(),
+    ),
+    // SharedPreferencesWithCache dibuat di main() sebelum runApp
+    // dan dititipkan ke sini via Provider.value (lihat main.dart)
+
     // ---------- Lapisan data (di balik kontrak domain) ----------
     Provider<AuthRepository>(create: (_) => AuthRepositoryFirebase()),
     Provider<ProfilRepository>(create: (_) => ProfilRepositoryFirestore()),
@@ -72,6 +87,17 @@ List<SingleChildWidget> buatPenyedia() {
       create: (_) => const PengaturanPerangkatAsli(),
     ),
 
+    // ---------- Local Repositories ----------
+    Provider<AppSettingsRepository>(
+      create: (c) => AppSettingsRepositoryImpl(c.read<SharedPreferencesWithCache>()),
+    ),
+    Provider<CartLocalRepository>(
+      create: (c) => CartLocalRepository(c.read<DatabaseService>()),
+    ),
+    Provider<ProductCacheRepository>(
+      create: (c) => ProductCacheRepository(c.read<DatabaseService>()),
+    ),
+
     // ---------- Use case (domain) ----------
     Provider(create: (c) => BatalkanPesanan(c.read<OrderRepository>())),
     Provider(create: (c) => BuatPesanan(c.read<OrderRepository>())),
@@ -88,12 +114,15 @@ List<SingleChildWidget> buatPenyedia() {
 
     // ---------- ViewModel seumur aplikasi ----------
     ChangeNotifierProvider(
-      lazy: false, // Langsung dengarkan status login
+      lazy: false,
       create: (c) => AuthViewModel(
         c.read<AuthRepository>(),
         c.read<PushRepository>(),
         c.read<PantauStatusPesanan>(),
       ),
+    ),
+    ChangeNotifierProvider(
+      create: (c) => SettingsViewModel(c.read<AppSettingsRepository>()),
     ),
   ];
 }
@@ -110,7 +139,10 @@ List<SingleChildWidget> buatPenyediaSesi() {
       ),
     ),
     ChangeNotifierProvider(
-      create: (c) => ProdukViewModel(c.read<ProductRepository>()),
+      create: (c) => ProdukViewModel(
+        c.read<ProductRepository>(),
+        c.read<ProductCacheRepository>(),
+      ),
     ),
     ChangeNotifierProvider(
       create: (c) => FavoritViewModel(c.read<FavoritRepository>()),
@@ -150,4 +182,6 @@ CartViewModel buatCartViewModel(BuildContext c) => CartViewModel(
   c.read<VoucherRepository>(),
   c.read<MenuConfigRepository>(),
   c.read<BuatPesanan>(),
+  c.read<CartLocalRepository>(),
+  c.read<ProductCacheRepository>(),
 );

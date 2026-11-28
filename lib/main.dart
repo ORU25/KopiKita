@@ -1,8 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config/dependensi.dart';
+import 'domain/repositories/app_settings_repository.dart';
 import 'firebase_options.dart';
 import 'viewmodels/auth_view_model.dart';
 import 'screens/account_page.dart';
@@ -19,10 +21,23 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // --- SharedPreferencesWithCache dibuat SEBELUM runApp ---
+  // Agar tema dan pengaturan lain langsung benar sejak layar pertama (tanpa berkedip)
+  final SharedPreferencesWithCache prefs = await SharedPreferencesWithCache.create(
+    cacheOptions: SharedPreferencesWithCacheOptions(
+      allowList: AppSettingsRepository.allKeys,
+    ),
+  );
+
   runApp(
     MultiProvider(
-      // Repository, use case & AuthViewModel (lihat config/dependensi.dart)
-      providers: buatPenyedia(),
+      providers: [
+        // SharedPreferencesWithCache dititipkan ke provider tree
+        Provider<SharedPreferencesWithCache>.value(value: prefs),
+        // Repository, use case & AuthViewModel (lihat config/dependensi.dart)
+        ...buatPenyedia(),
+      ],
       child: const MainApp(),
     ),
   );

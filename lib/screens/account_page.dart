@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../screens/settings_page.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_view_model.dart';
 import '../viewmodels/profil_view_model.dart';
@@ -145,6 +146,15 @@ class AccountPage extends StatelessWidget {
                 () => bukaVoucherSaya(context),
               ),
               _barisPengaturan(
+                Icons.settings_outlined,
+                'Pengaturan',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                ),
+                subtitle: 'Tema, metode pesan, tampilan',
+              ),
+              _barisPengaturan(
                 Icons.person_outline_rounded,
                 'Edit profil',
                 () => _sheetEditProfil(context),
@@ -202,6 +212,7 @@ class AccountPage extends StatelessWidget {
     IconData ikon,
     String label,
     VoidCallback onTap, {
+    String? subtitle,
     Color warna = AppColors.ink,
     Widget? trailing,
     bool garisBawah = true,
@@ -227,7 +238,15 @@ class AccountPage extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(label, style: ts(14, 600, color: warna)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(label, style: ts(14, 600, color: warna)),
+                    if (subtitle != null)
+                      Text(subtitle, style: ts(12, 500, color: AppColors.muted)),
+                  ],
+                ),
               ),
               trailing ??
                   const Icon(
