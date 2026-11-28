@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/local/cart_local_repository.dart';
+import '../data/local/product_cache_repository.dart';
 import '../domain/entities/cart_item.dart';
 import '../domain/entities/menu_config.dart';
 import '../domain/entities/pesanan.dart';
@@ -24,11 +26,19 @@ class CheckoutException implements Exception {
 // aksi checkout. Tidak mengenal Firebase: semua data lewat kontrak domain
 // yang disuntikkan dari akar komposisi (config/dependensi.dart).
 class CartViewModel extends ChangeNotifier {
-  CartViewModel(this._voucherRepo, this._configRepo, this._buatPesanan);
+  CartViewModel(
+    this._voucherRepo,
+    this._configRepo,
+    this._buatPesanan,
+    this._cartLocalRepo,
+    this._productCacheRepo,
+  );
 
   final VoucherRepository _voucherRepo;
   final MenuConfigRepository _configRepo;
   final BuatPesanan _buatPesanan;
+  final CartLocalRepository _cartLocalRepo;
+  final ProductCacheRepository _productCacheRepo;
 
   // STATE UTAMA: list item keranjang
   final List<CartItem> _items = [];
@@ -88,6 +98,17 @@ class CartViewModel extends ChangeNotifier {
   Future<void> muatConfig() async {
     _config = await _configRepo.ambil();
     _configTermuat = true;
+    
+    // Load cart from local storage
+    final hasil = await _cartLocalRepo.muatSemua();
+    switch (hasil) {
+      case Berhasil(:final nilai):
+        _items.clear();
+        _items.addAll(nilai);
+      case Gagal():
+        // Ignore error, start with empty cart
+        break;
+    }
     notifyListeners();
   }
 
@@ -129,14 +150,23 @@ class CartViewModel extends ChangeNotifier {
   }
 
   // ---------- CRUD ----------
+  Future<void> _simpanKeLokal() async {
+    await _cartLocalRepo.simpanSemua(_items);
+  }
+
   void addItem(CartItem item) {
     final i = _items.indexWhere((e) => e.kunci == item.kunci);
     if (i >= 0) {
       _items[i] = _items[i].copyWith(jumlah: _items[i].jumlah + item.jumlah);
     } else {
       _items.add(item);
+      // Mark product as recently viewed when added to cart
+      if (item.productId.isNotEmpty) {
+        _productCacheRepo.tandaiDilihat(item.productId);
+      }
     }
     notifyListeners();
+    _simpanKeLokal(); // Save to local
   }
 
   void changeQuantity(String kunci, int jumlah) {
@@ -148,6 +178,7 @@ class CartViewModel extends ChangeNotifier {
       _items[i] = _items[i].copyWith(jumlah: jumlah);
     }
     notifyListeners();
+    _simpanKeLokal(); // Save to local
   }
 
   // ---------- CHECKOUT ----------
@@ -175,6 +206,7 @@ class CartViewModel extends ChangeNotifier {
         case Berhasil():
           _items.clear();
           _voucher = null;
+          await _cartLocalRepo.hapusSemua(); // Clear local cart
         case Gagal(:final kegagalan):
           throw CheckoutException(switch (kegagalan) {
             TanpaKoneksi() =>

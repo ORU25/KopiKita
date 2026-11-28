@@ -1,8 +1,12 @@
 // Repository palsu lainnya (di memori, tanpa Firebase) + perakit CartViewModel.
 import 'dart:typed_data';
 
+import 'package:kopikita/data/local/cart_local_repository.dart';
+import 'package:kopikita/data/local/product_cache_repository.dart';
+import 'package:kopikita/domain/entities/cart_item.dart';
 import 'package:kopikita/domain/entities/menu_config.dart';
 import 'package:kopikita/domain/entities/notifikasi.dart';
+import 'package:kopikita/domain/entities/produk.dart';
 import 'package:kopikita/domain/entities/profil.dart';
 import 'package:kopikita/domain/entities/voucher.dart';
 import 'package:kopikita/domain/hasil.dart';
@@ -17,6 +21,46 @@ import 'package:kopikita/domain/use_cases/buat_pesanan.dart';
 import 'package:kopikita/viewmodels/cart_view_model.dart';
 
 import 'fake_order_repository.dart';
+
+class FakeCartLocalRepository implements CartLocalRepository {
+  FakeCartLocalRepository();
+
+  @override
+  Future<Hasil<void>> simpanSemua(List<CartItem> items) async => const Berhasil(null);
+
+  @override
+  Future<Hasil<List<CartItem>>> muatSemua() async => Berhasil(const []);
+
+  @override
+  Future<Hasil<void>> hapusSemua() async => const Berhasil(null);
+}
+
+class FakeProductCacheRepository implements ProductCacheRepository {
+  FakeProductCacheRepository();
+
+  @override
+  Future<Hasil<void>> simpanSemua(List<Produk> produkList) async => const Berhasil(null);
+
+  @override
+  Future<Hasil<List<Produk>>> muatSemua() async => Berhasil(const []);
+
+  @override
+  Future<Hasil<List<Produk>>> muatByKategori(String kategori) async => Berhasil(const []);
+
+  @override
+  Future<Hasil<List<Produk>>> cari(String kataKunci) async => Berhasil(const []);
+
+  @override
+  Future<void> tandaiDilihat(String productId) async {}
+
+  @override
+  Future<Hasil<List<Produk>>> getRecentlyViewed({int limit = 10}) async => Berhasil(const []);
+
+  @override
+  Future<void> bersihkanCacheLama() async {}
+}
+
+// ... existing fake classes ...
 
 class FakeVoucherRepository implements VoucherRepository {
   FakeVoucherRepository([this.katalog = const {}]);
@@ -157,4 +201,6 @@ CartViewModel buatCart({
   voucher ?? FakeVoucherRepository(),
   FakeMenuConfigRepository(config),
   BuatPesanan(pesanan ?? FakeOrderRepository()),
+  FakeCartLocalRepository(),
+  FakeProductCacheRepository(),
 );
